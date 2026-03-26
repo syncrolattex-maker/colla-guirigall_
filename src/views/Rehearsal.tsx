@@ -421,7 +421,7 @@ export default function Rehearsal({ user }: RehearsalProps) {
                           <Users size={16} /> Assistència
                         </h3>
                         <div className="px-3 py-1 bg-white border border-slate-100 rounded-full text-[10px] font-black text-primary uppercase tracking-widest shadow-sm">
-                          {allAttendances.filter(a => a.eventid === rehearsal.id).length} Músics
+                          {allAttendances.filter(a => a.eventid === rehearsal.id && users.some(u => u.uid === a.userid)).length} Músics
                         </div>
                       </div>
                       

@@ -320,8 +320,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               const eventAtts = allAttendances[event.id] || {};
               const myAttendance = eventAtts[user.uid]?.status;
               const amIConvocat = eventAtts[user.uid]?.convocat;
-              const confirmedCount = (Object.values(eventAtts) as Attendance[]).filter(a => a.status === 'Vull anar-hi').length;
-              const declinedCount = (Object.values(eventAtts) as Attendance[]).filter(a => a.status === 'No puc').length;
+              const confirmedCount = users.filter(u => eventAtts[u.uid]?.status === 'Vull anar-hi').length;
+              const declinedCount = users.filter(u => eventAtts[u.uid]?.status === 'No puc').length;
               
               return (
                 <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-xl overflow-hidden shadow-sm border border-[#d44211]/5 hover:shadow-md transition-shadow">
