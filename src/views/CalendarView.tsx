@@ -527,39 +527,33 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                 </div>
               )}
 
-              {viewingEvent.ispublished ? (
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Users size={20} className="text-[#d44211]" />
-                    Llista de Convocats
-                  </h3>
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="grid grid-cols-2 bg-slate-50 p-3 border-b border-slate-200 font-bold text-sm text-slate-700">
-                      <div>Músic</div>
-                      <div>Instrument</div>
-                    </div>
-                    <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                      {users
-                        .filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat)
-                        .map(u => (
-                          <div key={u.uid} className="grid grid-cols-2 p-3 text-sm items-center">
-                            <div className="font-medium text-slate-900">{u.name}</div>
-                            <div className="text-slate-500">{u.instrument || 'Sense assignar'}</div>
-                          </div>
-                        ))}
-                      {users.filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat).length === 0 && (
-                        <div className="p-4 text-center text-slate-500 text-sm">
-                          Encara no hi ha cap músic convocat.
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Users size={20} className="text-[#d44211]" />
+                  Llista de Convocats
+                </h3>
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-2 bg-slate-50 p-3 border-b border-slate-200 font-bold text-sm text-slate-700">
+                    <div>Músic</div>
+                    <div>Instrument</div>
+                  </div>
+                  <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                    {users
+                      .filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat || allAttendances[viewingEvent.id]?.[u.uid]?.status === 'Vull anar-hi')
+                      .map(u => (
+                        <div key={u.uid} className="grid grid-cols-2 p-3 text-sm items-center">
+                          <div className="font-medium text-slate-900">{u.name}</div>
+                          <div className="text-slate-500">{u.instrument || 'Sense assignar'}</div>
                         </div>
-                      )}
-                    </div>
+                      ))}
+                    {users.filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat || allAttendances[viewingEvent.id]?.[u.uid]?.status === 'Vull anar-hi').length === 0 && (
+                      <div className="p-4 text-center text-slate-500 text-sm">
+                        Encara no hi ha cap músic confirmat o convocat.
+                      </div>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-center">
-                  La llista de convocats encara no s'ha publicat.
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

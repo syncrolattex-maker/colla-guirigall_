@@ -58,7 +58,7 @@ export default function Login() {
         </button>
         
         <p className="mt-12 text-[10px] uppercase font-black tracking-widest text-slate-400">
-          &copy; 2024 Colla Musical Guirigall
+          &copy; 2026 Colla Musical Guirigall
         </p>
       </div>
     </div>
