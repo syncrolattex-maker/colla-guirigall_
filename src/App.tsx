@@ -43,13 +43,13 @@ export default function App() {
       return;
     }
 
-    let mounted = true;
+    const mountedRef = { current: true };
     let authSubscription: any = null;
 
     const initializeAuth = async () => {
       // 10s safety timeout for the entire initialization
       const initTimeout = setTimeout(() => {
-        if (mounted) {
+        if (mountedRef.current) {
           console.warn("Auth initialization safety timeout reached");
           setLoading(false);
         }
@@ -59,9 +59,9 @@ export default function App() {
         // Step 1: Get initial session sequentially to avoid lock contention
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (mounted) {
+        if (mountedRef.current) {
           if (session?.user) {
-            await fetchUserData(session.user);
+            await fetchUserData(session.user, mountedRef);
           } else {
             setUser(null);
             setLoading(false);
@@ -70,7 +70,7 @@ export default function App() {
 
         // Step 2: Only after initial session is handled, setup the listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-          if (!mounted) return;
+          if (!mountedRef.current) return;
           
           console.log("Auth event:", event, currentSession?.user?.email);
 
@@ -86,9 +86,9 @@ export default function App() {
         authSubscription = subscription;
       } catch (err) {
         console.error("Auth init error:", err);
-        if (mounted) setLoading(false);
+        if (mountedRef.current) setLoading(false);
       } finally {
-        if (mounted) {
+        if (mountedRef.current) {
           clearTimeout(initTimeout);
           setLoading(false);
         }
@@ -98,9 +98,9 @@ export default function App() {
     initializeAuth();
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mounted) {
+      if (document.visibilityState === 'visible' && mountedRef.current) {
         supabase.auth.getSession().then(({ data: { session } }) => {
-          if (mounted && session?.user && !user) {
+          if (mountedRef.current && session?.user && !user) {
             fetchUserData(session.user);
           }
         }).catch(err => console.error("Visibility refresh error:", err));
@@ -109,13 +109,13 @@ export default function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (authSubscription) authSubscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
-  const fetchUserData = async (authUser: any) => {
+  const fetchUserData = async (authUser: any, mountedRef?: { current: boolean }) => {
     try {
       console.log("Fetching data for UID:", authUser.id);
       
@@ -163,12 +163,16 @@ export default function App() {
       
       console.log("User dynamic data loaded:", userData);
       setUser(userData);
+      setLoading(false);
     } catch (error: any) {
       console.error("Detailed error fetching user data:", error);
-      // Even if it fails, we shouldn't block the app forever
-      setUser(null); // Fallback to login if data can't be fetched
+      // DON'T set user to null on transient errors to avoid logging them out
+      // Only set to null if the error is explicitly an Auth error
+      if (error.status === 401 || error.status === 403) {
+        setUser(null);
+      }
     } finally {
-      setLoading(false);
+      if (!mountedRef || mountedRef.current) setLoading(false);
     }
   };
 

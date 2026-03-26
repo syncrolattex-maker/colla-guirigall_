@@ -42,6 +42,7 @@ function NotifyModal({ member, onClose }: { member: Member; onClose: () => void 
         message: message.trim(),
         read: false,
         createdat: new Date().toISOString(),
+        send_email: true,
       }]);
       if (error) throw error;
       onClose();
@@ -363,13 +364,15 @@ export default function Admin({ user }: AdminProps) {
         userid: m.uid,
         title: 'Convocatòria Confirmada',
         message: `Has estat convocat per a l'actuació "${eventTitle}" el dia ${eventDate}. Revisa el calendari per a més detalls.`,
-        read: false, createdat: new Date().toISOString(), link: 'calendar', eventid: selectedEventId
+        read: false, createdat: new Date().toISOString(), link: 'calendar', eventid: selectedEventId,
+        send_email: true
       }));
       if (notifications.length > 0) {
+        console.log("Sending email notifications to:", notifications.length, "musicians");
         const { error: notifError } = await supabase.from('notifications').insert(notifications);
         if (notifError) throw notifError;
       }
-      alert("S'ha publicat la llista i enviat les notificacions als músics convocats.");
+      alert(`S'ha publicat la llista i s'estan enviant ${notifications.length} correus de notificació.`);
     } catch (error) { console.error("Error publishing event:", error); alert("Error en publicar la llista."); }
   };
 
@@ -406,7 +409,8 @@ export default function Admin({ user }: AdminProps) {
     if (!message) return;
     try {
       const notifications = members.map(m => ({
-        userid: m.uid, title, message, read: false, createdat: new Date().toISOString()
+        userid: m.uid, title, message, read: false, createdat: new Date().toISOString(),
+        send_email: true
       }));
       const { error } = await supabase.from('notifications').insert(notifications);
       if (error) throw error;

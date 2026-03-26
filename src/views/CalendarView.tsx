@@ -245,7 +245,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
           message: reason || `S'ha cancel·lat l'esdeveniment del dia ${formatDate(event?.date || '')}.`,
           link: 'calendar',
           eventid: eventId,
-          read: false
+          read: false,
+          send_email: true
         }));
 
         const { error: notifError } = await supabase.from('notifications').insert(notifications);
