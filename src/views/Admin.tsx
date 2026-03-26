@@ -278,7 +278,9 @@ export default function Admin({ user }: AdminProps) {
     const { data, error } = await supabase.from('users').select('*');
     if (error) console.error("Error fetching members:", error);
     else {
-      setMembers((data || []).map(d => ({
+      // Filter out the superadmin from the list
+      const filteredData = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
+      setMembers(filteredData.map(d => ({
         uid: d.uid,
         name: d.name,
         email: d.email || '',

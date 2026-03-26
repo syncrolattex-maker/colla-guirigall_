@@ -81,7 +81,11 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const fetchUsers = async () => {
     const { data, error } = await supabase.from('users').select('*');
     if (error) console.error("Error fetching users:", error);
-    else setUsers(data || []);
+    else {
+      // Filter out the superadmin from the list
+      const filteredUsers = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
+      setUsers(filteredUsers);
+    }
   };
 
   const fetchSongs = async () => {

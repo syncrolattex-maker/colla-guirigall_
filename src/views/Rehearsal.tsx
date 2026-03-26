@@ -36,6 +36,7 @@ interface DBUser {
   uid: string;
   name: string;
   instrument: string;
+  email: string;
 }
 
 interface DBAttendance {
@@ -63,9 +64,13 @@ export default function Rehearsal({ user }: RehearsalProps) {
   };
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase.from('users').select('uid, name, instrument');
+    const { data, error } = await supabase.from('users').select('uid, name, instrument, email');
     if (error) console.error("Error fetching users:", error);
-    else setUsers(data || []);
+    else {
+      // Filter out the superadmin from the list
+      const filteredUsers = (data || []).filter(u => (u as any).email !== 'syncrolattex@gmail.com');
+      setUsers(filteredUsers as DBUser[]);
+    }
   };
 
   const fetchNextRehearsal = async () => {
