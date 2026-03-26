@@ -31,7 +31,17 @@ export default function App() {
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
   useEffect(() => {
-    if (DEV_MODE) return;
+    if (DEV_MODE) {
+      setUser({
+        uid: 'dev-user-id',
+        email: 'syncrolattex@gmail.com', // Set to an admin email for testing admin view
+        name: 'Administrador Local',
+        role: 'admin',
+        instrument: 'Dolçaina'
+      });
+      setLoading(false);
+      return;
+    }
     let mounted = true;
 
     const checkUser = async () => {
@@ -63,15 +73,23 @@ export default function App() {
       
       console.log("Auth state change:", _event, session?.user?.email);
       
+      // Safety timeout for this specific event
+      const eventTimeout = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 5000);
+
       try {
         if (session?.user) {
           await fetchUserData(session.user);
         } else {
           setUser(null);
+          setLoading(false);
         }
       } catch (err) {
         console.error("Error in onAuthStateChange handler:", err);
+        setLoading(false);
       } finally {
+        clearTimeout(eventTimeout);
         if (mounted) setLoading(false);
       }
     });
@@ -145,7 +163,9 @@ export default function App() {
     } catch (error: any) {
       console.error("Detailed error fetching user data:", error);
       // Even if it fails, we shouldn't block the app forever
-      // but without user data many things will fail.
+      setUser(null); // Fallback to login if data can't be fetched
+    } finally {
+      setLoading(false);
     }
   };
 
