@@ -44,43 +44,61 @@ export default function App() {
     }
 
     let mounted = true;
+    let authSubscription: any = null;
 
-    // Use onAuthStateChange for all auth life cycle (INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, etc.)
-    // Combined with getSession in a single subscription flow to avoid double-request lock issues.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      
-      console.log("Auth event:", event, session?.user?.email);
-
-      // 20s safety timeout for slow network/initial load
-      const eventTimeout = setTimeout(() => {
+    const initializeAuth = async () => {
+      // 10s safety timeout for the entire initialization
+      const initTimeout = setTimeout(() => {
         if (mounted) {
-          console.warn("Auth initialization timeout reached");
+          console.warn("Auth initialization safety timeout reached");
           setLoading(false);
         }
-      }, 20000);
+      }, 10000);
 
       try {
-        if (session?.user) {
-          await fetchUserData(session.user);
-        } else {
-          setUser(null);
-          setLoading(false);
+        // Step 1: Get initial session sequentially to avoid lock contention
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (mounted) {
+          if (session?.user) {
+            await fetchUserData(session.user);
+          } else {
+            setUser(null);
+            setLoading(false);
+          }
         }
+
+        // Step 2: Only after initial session is handled, setup the listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          if (!mounted) return;
+          
+          console.log("Auth event:", event, currentSession?.user?.email);
+
+          // If session shifted (login/logout), update data
+          if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+            if (currentSession?.user) await fetchUserData(currentSession.user);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setLoading(false);
+          }
+        });
+        
+        authSubscription = subscription;
       } catch (err) {
-        console.error("Auth handler error:", err);
-        setLoading(false);
+        console.error("Auth init error:", err);
+        if (mounted) setLoading(false);
       } finally {
         if (mounted) {
-          clearTimeout(eventTimeout);
+          clearTimeout(initTimeout);
           setLoading(false);
         }
       }
-    });
+    };
+
+    initializeAuth();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && mounted) {
-        // Only refresh if we don't have a user or if the session might be stale
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (mounted && session?.user && !user) {
             fetchUserData(session.user);
@@ -92,10 +110,10 @@ export default function App() {
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (authSubscription) authSubscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user?.uid]);
+  }, []);
 
   const fetchUserData = async (authUser: any) => {
     try {
