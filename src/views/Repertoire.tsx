@@ -44,6 +44,7 @@ export default function Repertoire({ user }: RepertoireProps) {
   const [pdfFiles, setPdfFiles] = useState<{ instrument: string, file: File }[]>([]);
   const [mp3File, setMp3File] = useState<File | null>(null);
   const [activeAudio, setActiveAudio] = useState<{url: string, title: string} | null>(null);
+  const [activeVideo, setActiveVideo] = useState<{url: string, title: string} | null>(null);
 
   const fetchSongs = async () => {
     setLoading(true);
@@ -211,6 +212,22 @@ export default function Repertoire({ user }: RepertoireProps) {
       setActiveAudio(null);
     } else {
       setActiveAudio({ url, title });
+      setActiveVideo(null); // Stop video if audio starts
+    }
+  };
+
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const toggleVideo = (url: string, title: string) => {
+    if (activeVideo?.url === url) {
+      setActiveVideo(null);
+    } else {
+      setActiveVideo({ url, title });
+      setActiveAudio(null); // Stop audio if video starts
     }
   };
 
@@ -306,9 +323,12 @@ export default function Repertoire({ user }: RepertoireProps) {
                               </button>
                             ) : null}
                             {song.youtube_url ? (
-                              <a href={song.youtube_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
+                              <button 
+                                onClick={() => toggleVideo(song.youtube_url, song.title)}
+                                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:scale-105'}`}
+                              >
                                 <PlayCircle size={14} /> YouTube
-                              </a>
+                              </button>
                             ) : null}
                           </div>
                           {user.role === 'admin' && (
@@ -553,6 +573,45 @@ export default function Repertoire({ user }: RepertoireProps) {
               autoPlay 
               className="w-full h-10 custom-audio-player"
             />
+          </div>
+        </div>
+      )}
+
+      {/* YouTube Player Modal */}
+      {activeVideo && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4 transition-all">
+          <div className="bg-white rounded-[2rem] shadow-3xl w-full max-w-4xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center text-red-500">
+                  <Play size={20} fill="currentColor" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none">{activeVideo.title}</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Vídeo de YouTube</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveVideo(null)} 
+                className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="aspect-video bg-black">
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${getYouTubeId(activeVideo.url)}?autoplay=1`}
+                title={activeVideo.title}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
+            <div className="p-4 bg-slate-50 text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prem ESC o el botó de tancar per sortir</p>
+            </div>
           </div>
         </div>
       )}

@@ -430,10 +430,14 @@ export default function Admin({ user }: AdminProps) {
     ...m,
     status: attendances[m.uid]?.status || 'Pendent',
     convocat: attendances[m.uid]?.convocat || false
-  }));
+  })).sort((a, b) => {
+    const order: Record<string, number> = { 'Vull anar-hi': 0, 'Pendent': 1, 'No puc': 2 };
+    return (order[a.status] ?? 3) - (order[b.status] ?? 3);
+  });
 
-  const manageableMusicians = combinedData.filter(m => m.status === 'Vull anar-hi');
-  const otherMusicians = combinedData.filter(m => m.status !== 'Vull anar-hi');
+  const confirmedMusiciansCount = combinedData.filter(m => m.status === 'Vull anar-hi').length;
+  const pendingMusiciansCount = combinedData.filter(m => m.status === 'Pendent').length;
+  const noStayMusiciansCount = combinedData.filter(m => m.status === 'No puc').length;
   const totalConvocats = combinedData.filter(m => m.convocat).length;
   const dolcaines = combinedData.filter(m => m.convocat && m.instrument.toLowerCase().includes('dolçaina')).length;
   const tabals = combinedData.filter(m => m.convocat && m.instrument.toLowerCase().includes('tabal')).length;
@@ -572,10 +576,12 @@ export default function Admin({ user }: AdminProps) {
               <div className="px-10 py-8 border-b border-slate-100/50 flex flex-col xl:flex-row justify-between items-center gap-8 bg-white/40">
                 <div className="space-y-1">
                   <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                    Músics Disponibles
-                    <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">Vull anar-hi</span>
+                    Gestió de Músics
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">Tot el llistat</span>
                   </h3>
-                  <p className="text-slate-400 text-sm font-medium">{otherMusicians.length} persones no han confirmat o no poden</p>
+                  <p className="text-slate-400 text-sm font-medium">
+                    {confirmedMusiciansCount} confirmats, {pendingMusiciansCount} pendents, {noStayMusiciansCount} no poden
+                  </p>
                 </div>
                 <button onClick={handlePublish} className="w-full xl:w-auto px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-900/20">
                   <CheckCircle size={18} strokeWidth={3} /> Confirmar i Notificar
@@ -595,14 +601,14 @@ export default function Admin({ user }: AdminProps) {
                   <tbody className="divide-y divide-slate-100/50">
                     {loading ? (
                       <tr><td colSpan={5} className="px-10 py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></td></tr>
-                    ) : manageableMusicians.length === 0 ? (
+                    ) : combinedData.length === 0 ? (
                       <tr><td colSpan={5} className="px-10 py-32 text-center space-y-4">
                         <Users size={48} className="mx-auto text-slate-200" />
-                        <p className="text-slate-400 font-medium italic">No hi ha músics que hagin confirmat disponibilitat encara.</p>
+                        <p className="text-slate-400 font-medium italic">No hi ha músics registrats encara.</p>
                       </td></tr>
                     ) : (
-                      manageableMusicians.map((m) => (
-                        <tr key={m.uid} className={`group hover:bg-primary/[0.02] transition-colors ${m.status === 'No puc' ? 'opacity-40' : ''}`}>
+                      combinedData.map((m) => (
+                        <tr key={m.uid} className={`group hover:bg-primary/[0.02] transition-colors ${m.status === 'No puc' ? 'opacity-50 grayscale-[0.5]' : ''}`}>
                           <td className="px-10 py-6 text-center">
                             <input type="checkbox" checked={m.convocat} onChange={(e) => handleConvocatChange(m.uid, e.target.checked)}
                               className="w-7 h-7 rounded-xl border-2 border-slate-200 text-primary focus:ring-primary focus:ring-offset-2 cursor-pointer transition-all checked:scale-110" />
@@ -647,7 +653,7 @@ export default function Admin({ user }: AdminProps) {
                 </table>
               </div>
               <div className="px-10 py-6 bg-slate-50/50 flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <p>Mostrant {manageableMusicians.length} músics confirmats</p>
+                <p>Mostrant {combinedData.length} músics totals</p>
               </div>
             </div>
 
