@@ -46,6 +46,30 @@ export default function App() {
     const mountedRef = { current: true };
     let authSubscription: any = null;
 
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mountedRef.current) return;
+        
+        console.log("Checking session on refresh...", session?.user?.email);
+        
+        if (session?.user) {
+          if (!user || user.uid !== session.user.id) {
+            await fetchUserData(session.user);
+          }
+        } else if (user) {
+          // If session is gone but user state exists, log out
+          console.warn("Session lost, logging out...");
+          setUser(null);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Session check error:", err);
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    };
+
     const initializeAuth = async () => {
       // 10s safety timeout for the entire initialization
       const initTimeout = setTimeout(() => {
@@ -56,18 +80,9 @@ export default function App() {
       }, 10000);
 
       try {
-        // Step 1: Get initial session sequentially to avoid lock contention
-        const { data: { session } } = await supabase.auth.getSession();
+        // Step 1: Initial check
+        await checkSession();
         
-        if (mountedRef.current) {
-          if (session?.user) {
-            await fetchUserData(session.user, mountedRef);
-          } else {
-            setUser(null);
-            setLoading(false);
-          }
-        }
-
         // Step 2: Only after initial session is handled, setup the listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           if (!mountedRef.current) return;
@@ -99,11 +114,7 @@ export default function App() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && mountedRef.current) {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (mountedRef.current && session?.user && !user) {
-            fetchUserData(session.user);
-          }
-        }).catch(err => console.error("Visibility refresh error:", err));
+        checkSession();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -113,7 +124,7 @@ export default function App() {
       if (authSubscription) authSubscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [user]);
 
   const fetchUserData = async (authUser: any, mountedRef?: { current: boolean }) => {
     try {
