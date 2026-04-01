@@ -1,10 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GMAIL_USER = Deno.env.get("GMAIL_USER")!;
-const GMAIL_PASS = Deno.env.get("GMAIL_PASS")!;
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -33,7 +31,7 @@ Deno.serve(async (req) => {
       return new Response("User not found or no email", { status: 404 });
     }
 
-    console.log("Sending email to:", userData.email);
+    console.log("Sending email via Resend to:", userData.email);
 
     // 2. Get Event Details if applicable
     let eventDetails = "";
@@ -99,37 +97,36 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    // 4. Send via Gmail SMTP
-    if (!GMAIL_USER || !GMAIL_PASS) {
-      console.warn("Gmail credentials not set");
-      return new Response(JSON.stringify({ message: "No Gmail credentials" }), { status: 500 });
+    // 4. Send via Resend API
+    if (!RESEND_API_KEY) {
+      console.warn("RESEND_API_KEY not set");
+      return new Response(JSON.stringify({ message: "No API key" }), { status: 500 });
     }
 
-    const client = new SmtpClient();
-    await client.connectTLS({
-      hostname: "smtp.gmail.com",
-      port: 465,
-      username: GMAIL_USER,
-      password: GMAIL_PASS,
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: "Colla Guirigall <notificacions@resend.dev>",
+        to: userData.email,
+        subject: record.title,
+        html: emailHtml,
+      }),
     });
 
-    await client.send({
-      from: `Colla Guirigall <${GMAIL_USER}>`,
-      to: userData.email,
-      subject: record.title,
-      content: record.message,
-      html: emailHtml,
-    });
+    const resData = await res.json();
+    console.log("Resend response:", resData);
 
-    await client.close();
-
-    console.log("Email sent successfully to:", userData.email);
-    return new Response(JSON.stringify({ success: true, to: userData.email }), {
+    return new Response(JSON.stringify(resData), {
+      status: res.status,
       headers: { "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("Error in edge function:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
