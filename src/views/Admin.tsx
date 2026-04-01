@@ -30,6 +30,7 @@ type AdminTab = 'convocatories' | 'musics';
 function NotifyModal({ member, onClose }: { member: Member; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [sendEmail, setSendEmail] = useState(true);
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -42,7 +43,7 @@ function NotifyModal({ member, onClose }: { member: Member; onClose: () => void 
         message: message.trim(),
         read: false,
         createdat: new Date().toISOString(),
-        send_email: true,
+        send_email: sendEmail,
       }]);
       if (error) throw error;
       onClose();
@@ -91,6 +92,18 @@ function NotifyModal({ member, onClose }: { member: Member; onClose: () => void 
               rows={4}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary resize-none"
             />
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <input
+              type="checkbox"
+              id="sendEmail"
+              checked={sendEmail}
+              onChange={e => setSendEmail(e.target.checked)}
+              className="w-5 h-5 rounded-lg border-2 border-slate-200 text-primary focus:ring-primary cursor-pointer transition-all"
+            />
+            <label htmlFor="sendEmail" className="text-xs font-bold text-slate-600 cursor-pointer select-none">
+              Enviar també per correu electrònic
+            </label>
           </div>
         </div>
         <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
@@ -407,10 +420,11 @@ export default function Admin({ user }: AdminProps) {
     if (!title) return;
     const message = prompt("Missatge:");
     if (!message) return;
+    const sendViaEmail = confirm("Vols enviar també aquesta notificació per correu electrònic a tots els membres?");
     try {
       const notifications = members.map(m => ({
         userid: m.uid, title, message, read: false, createdat: new Date().toISOString(),
-        send_email: true
+        send_email: sendViaEmail
       }));
       const { error } = await supabase.from('notifications').insert(notifications);
       if (error) throw error;
