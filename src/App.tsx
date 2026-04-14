@@ -137,7 +137,7 @@ export default function App() {
       if (authSubscription) authSubscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user]);
+  }, []);
 
   const fetchUserData = async (authUser: any, mountedRef?: { current: boolean }) => {
     try {
