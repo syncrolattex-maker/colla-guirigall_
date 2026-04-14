@@ -31,6 +31,19 @@ export default function App() {
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
   useEffect(() => {
+    if (user) {
+      const params = new URLSearchParams(window.location.search);
+      const eventId = params.get('event');
+      if (eventId) {
+        setCurrentView('calendar');
+        setSelectedEventId(Number(eventId));
+        // Clean up title and URL to keep it pretty
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (DEV_MODE) {
       setUser({
         uid: 'dev-user-id',

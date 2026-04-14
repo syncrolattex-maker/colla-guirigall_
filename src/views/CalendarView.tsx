@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -125,9 +125,19 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
   const handleShareWhatsApp = (event: AppEvent) => {
     const eventDate = formatDate(event.date);
-    const message = `📢 *NOU ASSAIG!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}\n📝 *Notes:* ${event.notes || '-'}\n\nRevisa l'app de la colla per confirmar assistència! 🎺🥁`;
+    const appUrl = window.location.origin;
+    const shareLink = `${appUrl}/?event=${event.id}`;
+    
+    const message = `📢 *NOU ESDEVENIMENT!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}\n📝 *Notes:* ${event.notes || '-'}\n\n👇 *Apunta't aquí:* \n${shareLink}\n\nRevisa l'app de la colla per confirmar assistència! 🎺🥁`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleCopyLink = (event: AppEvent) => {
+    const appUrl = window.location.origin;
+    const shareLink = `${appUrl}/?event=${event.id}`;
+    navigator.clipboard.writeText(shareLink);
+    alert("Enllaç directe copiat al porta-retalls! Ja el pots compartir.");
   };
 
   const handleSaveEvent = async (e: React.FormEvent) => {
@@ -382,7 +392,14 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                 <X size={20} className="stroke-[3]" />
                               </button>
                             )}
-                            {event.type.startsWith('Assaig') && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleCopyLink(event); }}
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                title="Copiar enllaç directe"
+                              >
+                                <Link2 size={18} />
+                              </button>
+                              {event.type.startsWith('Assaig') && (
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(event); }}
                                 className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
