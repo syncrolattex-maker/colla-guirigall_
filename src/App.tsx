@@ -125,17 +125,9 @@ export default function App() {
 
     initializeAuth();
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mountedRef.current) {
-        checkSession();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       mountedRef.current = false;
       if (authSubscription) authSubscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
