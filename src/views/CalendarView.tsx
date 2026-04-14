@@ -151,11 +151,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       const eventData = {
         title: finalTitle,
         type: newEvent.type,
-        date: newEvent.date,
+        date: new Date(newEvent.date).toISOString(), // Use ISO string for consistency
         location: newEvent.location,
         notes: newEvent.notes,
         createdby: user.name,
-        // If editing, keep original createdat, otherwise new one
         createdat: editingEvent ? editingEvent.createdat : new Date().toISOString()
       };
 
@@ -186,10 +185,15 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
   const handleOpenEdit = (event: AppEvent) => {
     setEditingEvent(event);
+    
+    // Convert UTC date to local string for datetime-local input
+    const dateObj = new Date(event.date);
+    const localISO = new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    
     setNewEvent({
       title: event.title,
       type: event.type,
-      date: event.date.substring(0, 16), // Format for datetime-local
+      date: localISO,
       location: event.location,
       notes: event.notes
     });
@@ -392,22 +396,6 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                 <X size={20} className="stroke-[3]" />
                               </button>
                             )}
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleCopyLink(event); }}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                                title="Copiar enllaç directe"
-                              >
-                                <Link2 size={18} />
-                              </button>
-                              {event.type.startsWith('Assaig') && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(event); }}
-                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                                title="Compartir per WhatsApp"
-                              >
-                                <svg size={18} viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                              </button>
-                            )}
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleOpenEdit(event); }}
                               className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
@@ -424,6 +412,24 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                             </button>
                           </>
                         )}
+                        
+                        {/* Unified Sharing - Visible to All */}
+                        <div className="flex items-center gap-0.5 border-l border-slate-200 ml-2 pl-2">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleCopyLink(event); }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            title="Copiar enllaç directe"
+                          >
+                            <Link2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(event); }}
+                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                            title="Compartir per WhatsApp"
+                          >
+                            <svg size={16} viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                          </button>
+                        </div>
                         {event.ispublished && amIConvocat && myAttendance !== 'No puc' && !event.is_cancelled && (
                           <span className="px-3 py-1 bg-[#d44211] text-white text-xs font-bold rounded-full flex items-center gap-1 shadow-sm shadow-[#d44211]/20">
                             <CheckCircle size={12} /> Convocat
