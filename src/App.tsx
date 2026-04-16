@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { Music, LogOut, X, Pencil, Save, CheckCircle } from 'lucide-react';
+import { Music, LogOut, X, Pencil, Save, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
@@ -20,6 +19,13 @@ export interface UserData {
   instrument: string;
 }
 
+export interface GlobalAlert {
+  id: number;
+  message: string;
+  active: boolean;
+  type: 'warning' | 'info' | 'danger';
+}
+
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -27,6 +33,7 @@ export default function App() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [globalAlert, setGlobalAlert] = useState<GlobalAlert | null>(null);
   const DEV_MODE = false; // Set to true only for local testing without Supabase Auth
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
@@ -82,6 +89,34 @@ export default function App() {
         if (mountedRef.current) setLoading(false);
       }
     };
+
+    // Global Alert fetch and subscription
+    const fetchAlert = async () => {
+      const { data } = await supabase
+        .from('global_alerts')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      if (data && mountedRef.current) {
+        setGlobalAlert(data.active ? data : null);
+      }
+    };
+
+    fetchAlert();
+
+    const alertChannel = supabase
+      .channel('global_alerts_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'global_alerts' 
+      }, (payload) => {
+        const newData = payload.new as GlobalAlert;
+        if (mountedRef.current) {
+          setGlobalAlert(newData.active ? newData : null);
+        }
+      })
+      .subscribe();
 
     const initializeAuth = async () => {
       // 10s safety timeout for the entire initialization
@@ -286,6 +321,20 @@ export default function App() {
           </button>
         </div>
       </header>
+      
+      {/* Global Alert Banner */}
+      {globalAlert && (
+        <div className={`px-4 py-3 flex items-center justify-center gap-3 text-sm font-bold shadow-lg z-40 sticky top-[65px] sm:top-[73px] bg-white border-b-2 ${
+          globalAlert.type === 'danger' ? 'border-red-500 text-red-700 bg-red-50' : 
+          globalAlert.type === 'info' ? 'border-blue-500 text-blue-700 bg-blue-50' : 
+          'border-[#d44211] text-[#d44211] bg-[#d44211]/5'
+        }`}>
+          {globalAlert.type === 'danger' ? <AlertTriangle size={18} /> : 
+           globalAlert.type === 'info' ? <Info size={18} /> : 
+           <AlertTriangle size={18} />}
+          <p className="flex-1 text-center">{globalAlert.message}</p>
+        </div>
+      )}
 
       {/* Mobile navigation is handled by BottomNav */}
 

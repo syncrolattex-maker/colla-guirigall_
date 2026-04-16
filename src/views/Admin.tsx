@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -24,7 +23,7 @@ interface Member {
   avatar: string;
 }
 
-type AdminTab = 'convocatories' | 'musics';
+type AdminTab = 'convocatories' | 'musics' | 'alertes';
 
 // ─── Notify Modal ────────────────────────────────────────────────────────────
 function NotifyModal({ member, onClose }: { member: Member; onClose: () => void }) {
@@ -361,6 +360,12 @@ export default function Admin({ user }: AdminProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendances, setAttendances] = useState<Record<string, {status: string, convocat: boolean}>>({});
   const [loading, setLoading] = useState(true);
+  const [globalAlert, setGlobalAlert] = useState<{message: string; active: boolean; type: string}>({
+    message: '',
+    active: false,
+    type: 'warning'
+  });
+  const [savingAlert, setSavingAlert] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -417,9 +422,15 @@ export default function Admin({ user }: AdminProps) {
     setLoading(false);
   };
 
+  const fetchGlobalAlert = async () => {
+    const { data } = await supabase.from('global_alerts').select('*').eq('id', 1).single();
+    if (data) setGlobalAlert(data);
+  };
+
   useEffect(() => {
     fetchEvents();
     fetchMembers();
+    fetchGlobalAlert();
     const eventsChannel = supabase.channel('adm:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const usersChannel = supabase.channel('adm:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchMembers).subscribe();
     return () => {
@@ -427,6 +438,25 @@ export default function Admin({ user }: AdminProps) {
       supabase.removeChannel(usersChannel);
     };
   }, []);
+
+  const handleSaveAlert = async () => {
+    setSavingAlert(true);
+    try {
+      const { error } = await supabase.from('global_alerts').update({
+        message: globalAlert.message,
+        active: globalAlert.active,
+        type: globalAlert.type,
+        updated_at: new Date().toISOString()
+      }).eq('id', 1);
+      if (error) throw error;
+      alert("Avís actualitzat correctament!");
+    } catch (err) {
+      console.error('Error saving alert:', err);
+      alert("Error en desar l'avís.");
+    } finally {
+      setSavingAlert(false);
+    }
+  };
 
   useEffect(() => {
     fetchAttendances();
@@ -595,6 +625,7 @@ export default function Admin({ user }: AdminProps) {
   const navItems = [
     { id: 'convocatories' as AdminTab, label: 'Convocatòries', icon: Calendar },
     { id: 'musics' as AdminTab, label: 'Músics', icon: Users },
+    { id: 'alertes' as AdminTab, label: 'Alertes', icon: Bell },
   ];
 
   return (
@@ -646,6 +677,86 @@ export default function Admin({ user }: AdminProps) {
 
       {/* Main Content */}
       <div className="flex-1 p-8 lg:p-12 flex flex-col gap-12 pb-32 lg:pb-12 max-w-7xl mx-auto w-full">
+
+        {/* ── ALERTS TAB ───────────────────────────────────────────────────────── */}
+        {activeTab === 'alertes' && (
+          <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Avís <span className="text-gradient">Global</span></h2>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Comunicació en Temps Real</p>
+            </div>
+
+            <div className="glass rounded-[3rem] border-white/40 p-10 shadow-2xl space-y-8 max-w-2xl">
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Bell size={18} className="text-primary" /> Missatge del banner
+                </label>
+                <textarea 
+                  value={globalAlert.message}
+                  onChange={(e) => setGlobalAlert({...globalAlert, message: e.target.value})}
+                  className="w-full p-6 bg-slate-50 border-2 border-white/40 rounded-3xl text-sm font-bold focus:bg-white focus:border-primary focus:outline-none transition-all min-h-[120px]"
+                  placeholder="Ex: ⚠️ L'assaig d'avui es trasllada a l'interior per pluja."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tipus d'Alerta</label>
+                  <div className="flex gap-3">
+                    {['warning', 'info', 'danger'].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setGlobalAlert({...globalAlert, type: t})}
+                        className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          globalAlert.type === t 
+                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                            : 'bg-white/50 text-slate-400 hover:bg-white hover:text-primary border border-transparent hover:border-primary/20'
+                        }`}
+                      >
+                        {t === 'warning' ? 'Avís' : t === 'info' ? 'Info' : 'Urgent'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400">Estat Vizualització</label>
+                  <button 
+                    onClick={() => setGlobalAlert({...globalAlert, active: !globalAlert.active})}
+                    className={`w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border-2 ${
+                      globalAlert.active 
+                        ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' 
+                        : 'bg-slate-50 text-slate-400 border-slate-100 hover:border-slate-200'
+                    }`}
+                  >
+                    {globalAlert.active ? <CheckCircle size={16} /> : <X size={16} />}
+                    {globalAlert.active ? 'Banner Actiu' : 'Banner Inactiu'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100">
+                <button 
+                  onClick={handleSaveAlert}
+                  disabled={savingAlert}
+                  className="w-full py-6 bg-primary text-white font-black uppercase tracking-widest text-xs rounded-[2rem] hover:bg-primary/90 transition-all shadow-2xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {savingAlert ? <div className="animate-spin w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> : <Save size={20} />}
+                  Publicar Avís ara mateix
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-4 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <AlertTriangle size={16} />
+                </div>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic leading-relaxed">
+                  L'avís s'actualitzarà automàticament a tots els dispositius dels membres sense necessitat de reiniciar l'aplicació.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── CONVOCATÒRIES TAB ───────────────────────────────────────────────── */}
         {activeTab === 'convocatories' && (
