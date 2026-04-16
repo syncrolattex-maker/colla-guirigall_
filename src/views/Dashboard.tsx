@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -177,10 +177,16 @@ export default function Dashboard({ setView, user }: DashboardProps) {
                       <span className="capitalize">{formatDate(event.date)}</span>
                     </div>
                     {event.location && (
-                      <div className="flex items-center gap-2 text-slate-500 text-sm">
-                        <MapPin size={16} />
-                        <span className="truncate">{event.location}</span>
-                      </div>
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-slate-500 text-sm hover:text-[#d44211] transition-colors group/loc w-fit"
+                      >
+                        <MapPin size={16} className="shrink-0" />
+                        <span className="truncate underline underline-offset-4 decoration-slate-200 group-hover/loc:decoration-[#d44211]/30">{event.location}</span>
+                        <ExternalLink size={12} className="opacity-0 group-hover/loc:opacity-100 transition-opacity" />
+                      </a>
                     )}
                   </div>
 
@@ -233,10 +239,19 @@ export default function Dashboard({ setView, user }: DashboardProps) {
                     <Calendar size={12} />
                     <span>{new Date(event.date).toLocaleTimeString('ca-ES', {hour: '2-digit', minute:'2-digit'})}</span>
                     {event.location && (
-                      <>
-                        <span className="mx-1">•</span>
-                        <span className="truncate">{event.location}</span>
-                      </>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-slate-300">•</span>
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-slate-400 hover:text-[#d44211] transition-colors truncate group/inner"
+                        >
+                          <MapPin size={10} className="shrink-0" />
+                          <span className="truncate group-hover/inner:underline">{event.location}</span>
+                        </a>
+                      </div>
                     )}
                   </div>
                 </div>

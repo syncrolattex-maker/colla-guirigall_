@@ -196,7 +196,8 @@ export default function Rehearsal({ user }: RehearsalProps) {
 
   const handleShareWhatsApp = (event: AppEvent) => {
     const eventDate = formatDate(event.date);
-    const message = `📢 *RECORDA L'ASSAIG!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}\n📝 *Notes:* ${event.notes || '-'}\n\nRevisa l'app de la colla per confirmar assistència i veure el repertori! 🎺🥁`;
+    const mapsUrl = event.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}` : '';
+    const message = `📢 *RECORDA L'ASSAIG!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}${mapsUrl ? `\n🗺️ *Mapa:* ${mapsUrl}` : ''}\n📝 *Notes:* ${event.notes || '-'}\n\nRevisa l'app de la colla per confirmar assistència i veure el repertori! 🎺🥁`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -500,6 +501,18 @@ export default function Rehearsal({ user }: RehearsalProps) {
                       <a href={`https://maps.google.com/?q=${encodeURIComponent(rehearsal.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/10">
                         <ExternalLink size={14} /> Veure al mapa
                       </a>
+
+                      {/* Interactive map iframe (no API key needed) */}
+                      <div className="w-full h-48 rounded-[2rem] overflow-hidden border border-slate-100 shadow-inner bg-slate-50 mt-4">
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          frameBorder="0" 
+                          style={{ border: 0 }}
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(rehearsal.location)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                          allowFullScreen
+                        ></iframe>
+                      </div>
                     </div>
                   )}
                 </div>

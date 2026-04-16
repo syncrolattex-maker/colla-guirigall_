@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -138,7 +138,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     const appUrl = window.location.origin;
     const shareLink = `${appUrl}/?event=${event.id}`;
     
-    const message = `📢 *NOU ESDEVENIMENT!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}\n📝 *Notes:* ${event.notes || '-'}\n\n👇 *Apunta't aquí:* \n${shareLink}\n\nRevisa l'app de la colla per confirmar assistència! 🎺🥁`;
+    const mapsUrl = event.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}` : '';
+    const message = `📢 *NOU ESDEVENIMENT!* 📢\n\n🗓️ *Esdeveniment:* ${event.title}\n📅 *Data:* ${eventDate}\n📍 *Lloc:* ${event.location || 'Per confirmar'}${mapsUrl ? `\n🗺️ *Mapa:* ${mapsUrl}` : ''}\n📝 *Notes:* ${event.notes || '-'}\n\n👇 *Apunta't aquí:* \n${shareLink}\n\nRevisa l'app de la colla per confirmar assistència! 🎺🥁`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -407,9 +408,17 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                             <span>{formatDate(event.date)}</span>
                           </div>
                           {event.location && (
-                            <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs min-w-0">
-                              <MapPin size={14} className="text-[#d44211]" />
-                              <span className="truncate">{event.location}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs hover:text-[#d44211] transition-colors truncate group/cardloc"
+                              >
+                                <MapPin size={14} className="text-[#d44211] shrink-0" />
+                                <span className="truncate group-hover/cardloc:underline">{event.location}</span>
+                              </a>
                             </div>
                           )}
                         </div>
@@ -539,9 +548,33 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                     <span>{formatDate(viewingEvent.date)}</span>
                   </div>
                   {viewingEvent.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin size={16} className="text-[#d44211]" />
-                      <span>{viewingEvent.location}</span>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <MapPin size={16} className="text-[#d44211]" />
+                          <span className="font-bold text-slate-700">{viewingEvent.location}</span>
+                        </div>
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(viewingEvent.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors"
+                        >
+                          <ExternalLink size={12} /> Veure al mapa
+                        </a>
+                      </div>
+                      
+                      {/* Search-based interactive map iframe (no API key needed) */}
+                      <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-50">
+                        <iframe 
+                          width="100%" 
+                          height="100%" 
+                          frameBorder="0" 
+                          style={{ border: 0 }}
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(viewingEvent.location)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                          allowFullScreen
+                        ></iframe>
+                      </div>
                     </div>
                   )}
                 </div>
