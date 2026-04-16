@@ -101,14 +101,42 @@ export default function NotificationBell({ user, onNavigate }: { user: UserData,
   };
 
   const deleteNotification = async (id: number) => {
+    // Optimistic UI update to make it feel instantaneous on mobile
+    setNotifications(prev => prev.filter(n => n.id !== id));
     try {
       const { error } = await supabase
         .from('notifications')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting notification", error);
+        fetchNotifications(); // restore on error
+      }
     } catch (error) {
       console.error("Error deleting notification", error);
+      fetchNotifications();
+    }
+  };
+
+  const clearReadNotifications = async () => {
+    const readIds = notifications.filter(n => n.read).map(n => n.id);
+    if (readIds.length === 0) return;
+    
+    // Optimistic UI update
+    setNotifications(prev => prev.filter(n => !n.read));
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .in('id', readIds);
+      if (error) {
+        console.error("Error clearing notifications", error);
+        fetchNotifications(); // restore on error
+      }
+    } catch (error) {
+      console.error("Error clearing notifications", error);
+      fetchNotifications();
     }
   };
 
@@ -128,56 +156,69 @@ export default function NotificationBell({ user, onNavigate }: { user: UserData,
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 mt-4 w-80 glass rounded-[2rem] shadow-2xl border-white/40 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="px-6 py-5 border-b border-slate-100/50 flex justify-between items-center bg-white/40">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Notificacions</h3>
+          <div className="fixed sm:absolute top-16 sm:top-auto left-4 right-4 sm:left-auto sm:right-0 sm:w-80 mt-4 bg-[#d44211] rounded-[2rem] shadow-2xl shadow-[#d44211]/30 border border-white/20 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center bg-black/10">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Notificacions</h3>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">{unreadCount} noves</span>
+                <span className="px-2 py-0.5 bg-white text-[#d44211] text-[10px] font-black rounded-full uppercase tracking-widest shadow-sm">{unreadCount} noves</span>
               )}
             </div>
             
             <div className="max-h-[28rem] overflow-y-auto custom-scrollbar">
               {notifications.length === 0 ? (
                 <div className="p-12 text-center space-y-3">
-                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 mx-auto">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white/50 mx-auto border border-white/5">
                     <Bell size={24} />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tot al dia!</p>
-                  <p className="text-xs text-slate-500 font-medium">No tens cap notificació pendent.</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Tot al dia!</p>
+                  <p className="text-xs text-white/80 font-bold">No tens cap notificació pendent.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100/30">
+                <div className="divide-y divide-white/10">
                   {notifications.map(notif => (
                     <div
                       key={notif.id}
-                      className={`p-6 hover:bg-primary/[0.02] transition-colors flex gap-4 cursor-pointer relative group ${!notif.read ? 'bg-primary/[0.03]' : ''}`}
-                      onClick={() => handleNotificationClick(notif)}
+                      className={`flex items-stretch border-b border-white/5 last:border-0 ${!notif.read ? 'bg-white/10' : ''}`}
                     >
-                      <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!notif.read ? 'bg-primary ring-4 ring-primary/10' : 'bg-transparent'}`} />
-                      <div className="flex-1 space-y-1">
-                        <p className={`text-sm tracking-tight ${!notif.read ? 'font-black text-slate-900' : 'font-bold text-slate-600'}`}>
-                          {notif.title}
-                        </p>
-                        <p className="text-xs text-slate-500 font-medium leading-relaxed">{notif.message}</p>
-                        <div className="flex items-center gap-2 pt-1">
-                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-                            {new Date(notif.createdat).toLocaleDateString('ca-ES', { hour: '2-digit', minute: '2-digit' })}
+                      {/* Clickable content area */}
+                      <div 
+                        onClick={() => handleNotificationClick(notif)}
+                        className="flex-1 p-6 flex gap-4 cursor-pointer hover:bg-white/5 transition-colors group"
+                      >
+                        <div className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${!notif.read ? 'bg-white ring-4 ring-white/20' : 'bg-transparent border border-white/20'}`} />
+                        <div className="flex-1 space-y-1">
+                          <p className={`text-sm tracking-tight ${!notif.read ? 'font-black text-white' : 'font-bold text-white/70'}`}>
+                            {notif.title}
                           </p>
-                          {!notif.read && (
-                            <span className="w-1 h-1 rounded-full bg-slate-200" />
-                          )}
-                          {!notif.read && (
-                            <span className="text-[9px] font-black text-primary uppercase tracking-widest">Nou</span>
-                          )}
+                          <p className="text-xs text-white/60 font-medium leading-relaxed">{notif.message}</p>
+                          <div className="flex items-center gap-2 pt-1">
+                            <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+                                {new Date(notif.createdat).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {!notif.read && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-white/20" />
+                                <span className="text-[9px] font-black text-white uppercase tracking-widest">Nou</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
-                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-2 h-fit bg-white rounded-xl shadow-sm border border-slate-100"
-                        title="Esborrar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+
+                      {/* Separate Delete Button (no nesting) */}
+                      <div className="flex items-center pr-4">
+                        <button
+                          onClick={(e) => { 
+                            e.preventDefault(); 
+                            e.stopPropagation(); 
+                            deleteNotification(notif.id); 
+                          }}
+                          className="w-12 h-12 flex items-center justify-center rounded-2xl text-white/40 hover:text-white hover:bg-white/20 transition-all border border-white/10"
+                          title="Esborrar"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -185,17 +226,27 @@ export default function NotificationBell({ user, onNavigate }: { user: UserData,
             </div>
             
             {notifications.length > 0 && (
-              <div className="p-4 bg-slate-50/50 border-t border-slate-100/50">
-                <button
-                  onClick={async () => {
-                    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
-                    if (unreadIds.length === 0) return;
-                    await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
-                  }}
-                  className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Check size={12} /> Marcar totes com llegides
-                </button>
+              <div className="p-4 bg-black/10 border-t border-white/10 flex flex-col gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={async () => {
+                      const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+                      if (unreadIds.length === 0) return;
+                      await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
+                    }}
+                    className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Check size={12} /> Marcar totes com llegides
+                  </button>
+                )}
+                {notifications.some(n => n.read) && (
+                  <button
+                    onClick={clearReadNotifications}
+                    className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-red-400 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={12} /> Netejar llegides
+                  </button>
+                )}
               </div>
             )}
           </div>

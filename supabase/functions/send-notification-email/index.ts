@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { encodeBase64Url } from "https://deno.land/std@0.224.0/encoding/base64url.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -8,6 +9,22 @@ const GMAIL_REFRESH_TOKEN = Deno.env.get("GMAIL_REFRESH_TOKEN")!;
 const GMAIL_USER = Deno.env.get("GMAIL_USER")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+function removeAccents(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+async function logError(message: string, metadata: any = {}) {
+  try {
+    await supabase.from("error_logs").insert([{
+      service: "send-notification-email",
+      error_message: message,
+      metadata: metadata,
+    }]);
+  } catch (err) {
+    console.error("Failed to write to error_logs:", err);
+  }
+}
 
 async function getAccessToken() {
   const resp = await fetch("https://oauth2.googleapis.com/token", {
@@ -20,8 +37,10 @@ async function getAccessToken() {
       grant_type: "refresh_token",
     }),
   });
+  
   const data = await resp.json();
   if (!resp.ok) {
+    await logError("OAuth2 Token Refresh Failed", data);
     throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
   }
   return data.access_token;
@@ -29,7 +48,6 @@ async function getAccessToken() {
 
 async function sendGmailEmail(to: string, subject: string, html: string, accessToken: string) {
   // Gmail API expects Base64Safe URL encoded raw message
-  const utf8Encoder = new TextEncoder();
   const emailContent = [
     `From: Colla Guirigall <${GMAIL_USER}>`,
     `To: ${to}`,
@@ -40,10 +58,8 @@ async function sendGmailEmail(to: string, subject: string, html: string, accessT
     html,
   ].join("\n");
 
-  const base64Raw = btoa(emailContent)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  const utf8Encoder = new TextEncoder();
+  const base64Raw = encodeBase64Url(utf8Encoder.encode(emailContent));
 
   const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, {
     method: "POST",
@@ -56,12 +72,14 @@ async function sendGmailEmail(to: string, subject: string, html: string, accessT
 
   const data = await resp.json();
   if (!resp.ok) {
+    await logError("Gmail API Send Failed", { data, to });
     throw new Error(`Gmail API error: ${JSON.stringify(data)}`);
   }
   return data;
 }
 
 Deno.serve(async (req) => {
+  let currentRecord = null;
   try {
     if (req.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
@@ -69,8 +87,10 @@ Deno.serve(async (req) => {
 
     const payload = await req.json();
     const { record } = payload;
+    currentRecord = record;
 
     if (!record || !record.userid) {
+      await logError("Invalid payload", payload);
       return new Response("Invalid payload", { status: 400 });
     }
 
@@ -82,11 +102,15 @@ Deno.serve(async (req) => {
       .single();
 
     if (userError || !userData?.email) {
-      console.error("Error fetching user email:", userError);
+      await logError("User not found or no email", { userid: record.userid, error: userError });
       return new Response("User not found or no email", { status: 404 });
     }
 
-    console.log("Sending OAuth2 Gmail email to:", userData.email);
+    if (userData.email.includes("@manual-entry.colla")) {
+      return new Response(JSON.stringify({ success: true, message: "Manual entry skipped" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     // 2. Get Event Details if applicable
     let eventDetails = "";
@@ -154,17 +178,21 @@ Deno.serve(async (req) => {
 
     // 4. Send OAuth2 Email
     const accessToken = await getAccessToken();
-    const sendResp = await sendGmailEmail(userData.email, record.title, emailHtml, accessToken);
+    const sanitizedTitle = removeAccents(record.title);
+    const sanitizedHtml = removeAccents(emailHtml);
+    
+    const sendResp = await sendGmailEmail(userData.email, sanitizedTitle, sanitizedHtml, accessToken);
 
     return new Response(JSON.stringify({ success: true, to: userData.email, gmail_data: sendResp }), {
       headers: { "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Error in OAuth2 gmail function:", error);
+    await logError("Unhandled exception in Edge Function", { message: error.message, record: currentRecord });
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
 });
+

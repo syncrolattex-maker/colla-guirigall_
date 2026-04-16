@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Music, LogOut, X } from 'lucide-react';
+import { Music, LogOut, X, Pencil, Save, CheckCircle } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
@@ -212,20 +212,20 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const handleUpdateInstrument = async (instrument: string) => {
+  const handleUpdateProfile = async (updates: Partial<UserData>) => {
     if (!user) return;
     setUpdatingProfile(true);
     try {
       const { error } = await supabase
         .from('users')
-        .update({ instrument })
+        .update(updates)
         .eq('uid', user.uid);
         
       if (error) throw error;
-      setUser({ ...user, instrument });
+      setUser({ ...user, ...updates });
     } catch (error) {
-      console.error("Error updating instrument:", error);
-      alert("Error en actualitzar l'instrument.");
+      console.error("Error updating profile:", error);
+      alert("Error en actualitzar el perfil.");
     } finally {
       setUpdatingProfile(false);
     }
@@ -252,39 +252,38 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f8f6f6] text-slate-900 font-sans flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md border-b border-[#d44211]/10">
-        <div className="flex items-center gap-3 text-[#d44211] cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-          <div className="w-8 h-8 bg-[#d44211] rounded-lg flex items-center justify-center text-white">
-            <Music size={20} />
+      <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white/90 backdrop-blur-md border-b border-[#d44211]/10">
+        <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#d44211] rounded-lg flex items-center justify-center text-white shadow-lg shadow-[#d44211]/20">
+            <Music size={18} sm:size={20} />
           </div>
-          <h2 className="text-lg font-bold text-slate-900 hidden sm:block">Colla Guirigall</h2>
+          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Guirigall</h2>
         </div>
         
         <div className="hidden md:flex items-center gap-8">
           <nav className="flex items-center gap-6">
-            <button onClick={() => setCurrentView('dashboard')} className={`text-sm font-semibold ${currentView === 'dashboard' ? 'text-[#d44211] border-b-2 border-[#d44211]' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
-            <button onClick={() => setCurrentView('repertoire')} className={`text-sm font-semibold ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211]' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
-            <button onClick={() => setCurrentView('calendar')} className={`text-sm font-semibold ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211]' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
-            <button onClick={() => setCurrentView('rehearsal')} className={`text-sm font-semibold ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211]' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
+            <button onClick={() => setCurrentView('dashboard')} className={`text-sm font-bold tracking-tight ${currentView === 'dashboard' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
+            <button onClick={() => setCurrentView('repertoire')} className={`text-sm font-bold tracking-tight ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
+            <button onClick={() => setCurrentView('calendar')} className={`text-sm font-bold tracking-tight ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
+            <button onClick={() => setCurrentView('rehearsal')} className={`text-sm font-bold tracking-tight ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
             {user.role === 'admin' && (
-              <button onClick={() => setCurrentView('admin')} className={`text-sm font-semibold ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211]' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
+              <button onClick={() => setCurrentView('admin')} className={`text-sm font-bold tracking-tight ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
             )}
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <NotificationBell user={user} onNavigate={handleNavigate} />
           <button 
             onClick={() => setIsProfileOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#d44211]/20 border-2 border-[#d44211] overflow-hidden flex items-center justify-center text-[#d44211] font-bold hover:bg-[#d44211]/30 transition-colors cursor-pointer"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#d44211]/20 border-2 border-[#d44211] overflow-hidden flex items-center justify-center text-[#d44211] font-black text-sm sm:text-base hover:bg-[#d44211]/30 transition-all active:scale-95 cursor-pointer shadow-sm"
             title="El meu perfil"
           >
             {user.name.charAt(0).toUpperCase()}
           </button>
-          <button onClick={handleLogout} className="w-10 h-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors" title="Tancar sessió">
-            <LogOut size={20} />
+          <button onClick={handleLogout} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Tancar sessió">
+            <LogOut size={18} sm:size={20} />
           </button>
-          {/* Hamburger hidden on mobile — navigation handled by BottomNav */}
         </div>
       </header>
 
@@ -308,18 +307,47 @@ export default function App() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Nom</label>
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-900 font-medium">{user.name}</div>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    defaultValue={user.name}
+                    placeholder="El teu nom o el del teu fill"
+                    onBlur={(e) => {
+                      if (e.target.value !== user.name && e.target.value.trim() !== "") {
+                        handleUpdateProfile({ name: e.target.value.trim() });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const target = e.target as HTMLInputElement;
+                        if (target.value !== user.name && target.value.trim() !== "") {
+                          handleUpdateProfile({ name: target.value.trim() });
+                          target.blur();
+                        }
+                      }
+                    }}
+                    disabled={updatingProfile}
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:bg-white focus:border-[#d44211] focus:outline-none transition-all placeholder:text-slate-300 pr-12"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[#d44211]">
+                    {updatingProfile ? (
+                      <div className="w-5 h-5 border-2 border-[#d44211]/30 border-t-[#d44211] rounded-full animate-spin"></div>
+                    ) : (
+                      <Pencil size={18} className="opacity-30 group-focus-within:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Aquest és el nom que veuran els administradors.</p>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Correu</label>
-                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-900 font-medium">{user.email}</div>
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 font-medium cursor-not-allowed">{user.email}</div>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">El meu instrument</label>
                 <select 
                   value={user.instrument}
-                  onChange={(e) => handleUpdateInstrument(e.target.value)}
+                  onChange={(e) => handleUpdateProfile({ instrument: e.target.value })}
                   disabled={updatingProfile}
                   className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211] bg-white font-medium"
                 >

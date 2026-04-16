@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
@@ -100,9 +100,9 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     fetchUsers();
     fetchSongs();
 
-    const eventsChannel = supabase.channel('public:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
-    const attendancesChannel = supabase.channel('public:attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
-    const usersChannel = supabase.channel('public:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers).subscribe();
+    const eventsChannel = supabase.channel('calendar-view-events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
+    const attendancesChannel = supabase.channel('calendar-view-attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
+    const usersChannel = supabase.channel('calendar-view-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers).subscribe();
 
     return () => {
       supabase.removeChannel(eventsChannel);
@@ -117,6 +117,16 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       if (ev) setViewingEvent(ev);
     }
   }, [selectedEventId, events]);
+
+  // Sync viewingEvent with latest data if it's already open
+  useEffect(() => {
+    if (viewingEvent) {
+      const latest = events.find(e => e.id === viewingEvent.id);
+      if (latest && JSON.stringify(latest) !== JSON.stringify(viewingEvent)) {
+        setViewingEvent(latest);
+      }
+    }
+  }, [events]);
 
   const closeEventModal = () => {
     setViewingEvent(null);
@@ -307,27 +317,27 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 pb-24 md:pb-8">
       <div className="flex-1">
-        <div className="flex border-b border-[#d44211]/10 mb-6 gap-8 justify-between items-center">
-          <div className="flex gap-8">
+        <div className="flex flex-col sm:flex-row border-b border-[#d44211]/10 mb-6 gap-4 sm:gap-8 justify-between items-start sm:items-center">
+          <div className="flex gap-6 sm:gap-8 w-full sm:w-auto">
             <button 
               onClick={() => setActiveTab('upcoming')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'upcoming' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 sm:flex-none flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'upcoming' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
-              <span className="text-sm font-bold tracking-wide">Pròxims</span>
+              <span className="text-sm font-black tracking-widest uppercase">Pròxims</span>
             </button>
             <button 
               onClick={() => setActiveTab('past')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'past' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 sm:flex-none flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'past' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
-              <span className="text-sm font-bold tracking-wide">Passats</span>
+              <span className="text-sm font-black tracking-widest uppercase">Passats</span>
             </button>
           </div>
           {user.role === 'admin' && (
             <button 
               onClick={() => setIsAdding(true)}
-              className="px-4 py-2 bg-[#d44211] text-white font-bold rounded-lg hover:bg-[#d44211]/90 transition-all flex items-center gap-2 text-sm mb-2"
+              className="w-full sm:w-auto px-4 py-3 bg-[#d44211] text-white font-black uppercase tracking-widest rounded-xl hover:bg-[#d44211]/90 transition-all flex items-center justify-center gap-2 text-[10px] mb-2 shadow-lg shadow-[#d44211]/20"
             >
-              <Plus size={16} /> Nou Esdeveniment
+              <Plus size={14} /> Nou Esdeveniment
             </button>
           )}
         </div>
@@ -354,107 +364,105 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               const declinedCount = users.filter(u => eventAtts[u.uid]?.status === 'No puc').length;
               
               return (
-                <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-xl overflow-hidden shadow-sm border border-[#d44211]/5 hover:shadow-md transition-shadow">
-                  <div className="w-full md:w-48 h-40 md:h-auto bg-[#d44211]/10 flex items-center justify-center p-6 text-center">
-                    <div>
-                      <div className="text-[#d44211] font-black text-xl">{event.type}</div>
-                      <div className="text-slate-500 text-sm mt-2">{new Date(event.date).toLocaleDateString('ca-ES')}</div>
-                    </div>
+                <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-lg hover:border-[#d44211]/20 transition-all group">
+                  <div className="w-full md:w-32 h-24 md:h-auto bg-[#d44211]/5 flex flex-col items-center justify-center p-4 text-center border-b md:border-b-0 md:border-r border-[#d44211]/10">
+                    <div className="text-[#d44211] font-black text-2xl leading-none">{new Date(event.date).getDate()}</div>
+                    <div className="text-[#d44211]/60 text-[10px] font-black uppercase tracking-widest mt-1">{new Date(event.date).toLocaleDateString('ca-ES', { month: 'short' }).toUpperCase()}</div>
                   </div>
                   <div className="flex-1 p-5 flex flex-col justify-between">
-                    <div className="flex justify-between items-start gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-1">{event.title}</h3>
-                        <div className="flex items-center gap-2 text-[#d44211] font-medium text-sm mb-2">
-                          <CalendarIcon size={14} />
-                          <span>{formatDate(event.date)}</span>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0 w-full space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-[10px] font-black text-[#d44211] uppercase tracking-widest bg-[#d44211]/5 px-2 py-0.5 rounded-full">{event.type}</span>
+                          {event.is_cancelled && (
+                            <span className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-pulse">
+                              🚫 Cancel·lat
+                            </span>
+                          )}
+                          {event.ispublished && amIConvocat && myAttendance !== 'No puc' && !event.is_cancelled && (
+                            <span className="px-3 py-1 bg-[#d44211] text-white text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1 shadow-sm shadow-[#d44211]/20">
+                              <CheckCircle size={10} /> Convocat
+                            </span>
+                          )}
+                          {!event.ispublished && myAttendance === 'Vull anar-hi' && !event.is_cancelled && (
+                            <span className="px-3 py-1 bg-green-100 text-green-700 text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1">
+                              <CheckCircle size={10} /> Inscrit
+                            </span>
+                          )}
+                          {myAttendance === 'No puc' && !event.is_cancelled && (
+                            <span className="px-3 py-1 bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest rounded-full">
+                              No assisteix
+                            </span>
+                          )}
+                          {!myAttendance && !event.is_cancelled && (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-full">
+                              Pendent
+                            </span>
+                          )}
                         </div>
-                        {event.location && (
-                          <div className="flex items-center gap-2 text-slate-500 text-sm">
-                            <MapPin size={14} />
-                            <span>{event.location}</span>
+                        <h3 className="text-lg font-black text-slate-900 leading-tight mb-2 group-hover:text-[#d44211] transition-colors truncate">{event.title}</h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                          <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs">
+                            <CalendarIcon size={14} className="text-[#d44211]" />
+                            <span>{formatDate(event.date)}</span>
                           </div>
-                        )}
+                          {event.location && (
+                            <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs min-w-0">
+                              <MapPin size={14} className="text-[#d44211]" />
+                              <span className="truncate">{event.location}</span>
+                            </div>
+                          )}
+                        </div>
                         {event.notes && (
-                          <p className="text-sm text-slate-600 mt-2 italic">{event.notes}</p>
+                          <p className="text-xs text-slate-600 mt-3 italic line-clamp-2">{event.notes}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
-                        {event.is_cancelled && (
-                          <span className="px-3 py-1 bg-red-600 text-white text-xs font-black uppercase tracking-widest rounded-full flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-pulse">
-                            🚫 Cancel·lat
-                          </span>
-                        )}
+
+                      <div className="flex items-center gap-1 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-100 pt-3 sm:pt-0 mt-2 sm:mt-0">
                         {user.role === 'admin' && (
-                          <>
+                          <div className="flex items-center gap-1 pr-2 mr-2 border-r border-slate-100">
                             {!event.is_cancelled && (
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleCancelEvent(event.id); }}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                title="Cancel·lar esdeveniment"
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                title="Cancel·lar"
                               >
-                                <X size={20} className="stroke-[3]" />
+                                <X size={18} className="stroke-[3]" />
                               </button>
                             )}
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleOpenEdit(event); }}
-                              className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                              title="Editar esdeveniment"
+                              className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                              title="Editar"
                             >
                               <Pencil size={18} />
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                              title="Eliminar esdeveniment"
+                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                              title="Eliminar"
                             >
                               <Trash2 size={18} />
                             </button>
-                          </>
+                          </div>
                         )}
                         
-                        {/* Unified Sharing - Visible to All */}
-                        <div className="flex items-center gap-0.5 border-l border-slate-200 ml-2 pl-2">
+                        <div className="flex items-center gap-1">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleCopyLink(event); }}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                            title="Copiar enllaç directe"
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                            title="Copiar enllaç"
                           >
-                            <Link2 size={16} />
+                            <Link2 size={18} />
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(event); }}
-                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                            title="Compartir per WhatsApp"
+                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                            title="WhatsApp"
                           >
-                            <svg size={16} viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            <svg size={18} viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                           </button>
                         </div>
-                        {event.ispublished && amIConvocat && myAttendance !== 'No puc' && !event.is_cancelled && (
-                          <span className="px-3 py-1 bg-[#d44211] text-white text-xs font-bold rounded-full flex items-center gap-1 shadow-sm shadow-[#d44211]/20">
-                            <CheckCircle size={12} /> Convocat
-                          </span>
-                        )}
-                        {event.ispublished && !amIConvocat && myAttendance === 'Vull anar-hi' && !event.is_cancelled && (
-                          <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
-                            No convocat
-                          </span>
-                        )}
-                        {!event.ispublished && myAttendance === 'Vull anar-hi' && !event.is_cancelled && (
-                          <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
-                            <CheckCircle size={12} /> Inscrit
-                          </span>
-                        )}
-                        {myAttendance === 'No puc' && !event.is_cancelled && (
-                          <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
-                            No assisteix
-                          </span>
-                        )}
-                        {!myAttendance && !event.is_cancelled && (
-                          <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
-                            Pendent
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
@@ -591,14 +599,20 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                   </div>
                   <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                     {users
-                      .filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat || allAttendances[viewingEvent.id]?.[u.uid]?.status === 'Vull anar-hi')
+                      .filter(u => {
+                        const att = allAttendances[viewingEvent.id]?.[u.uid];
+                        return att?.convocat || att?.status === 'Vull anar-hi';
+                      })
                       .map(u => (
                         <div key={u.uid} className="grid grid-cols-2 p-3 text-sm items-center">
                           <div className="font-medium text-slate-900">{u.name}</div>
                           <div className="text-slate-500">{u.instrument || 'Sense assignar'}</div>
                         </div>
                       ))}
-                    {users.filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.convocat || allAttendances[viewingEvent.id]?.[u.uid]?.status === 'Vull anar-hi').length === 0 && (
+                    {users.filter(u => {
+                      const att = allAttendances[viewingEvent.id]?.[u.uid];
+                      return att?.convocat || att?.status === 'Vull anar-hi';
+                    }).length === 0 && (
                       <div className="p-4 text-center text-slate-500 text-sm">
                         Encara no hi ha cap músic confirmat o convocat.
                       </div>

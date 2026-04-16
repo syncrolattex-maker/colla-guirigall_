@@ -122,10 +122,10 @@ export default function Dashboard({ setView, user }: DashboardProps) {
     return date.getDate().toString();
   };
   return (
-    <div className="max-w-md mx-auto p-6 flex flex-col gap-6 pb-24 md:pb-6">
+    <div className="max-w-md mx-auto p-4 sm:p-6 flex flex-col gap-6 pb-28 md:pb-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-black text-slate-900">Hola, {user.name.split(' ')[0]}!</h1>
-        <p className="text-slate-500 text-base">Membre Actiu • {user.instrument}</p>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Hola, {user.name.split(' ')[0]}!</h1>
+        <p className="text-slate-500 text-sm sm:text-base font-medium">Membre Actiu • {user.instrument}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -217,10 +217,10 @@ export default function Dashboard({ setView, user }: DashboardProps) {
             // Standard list item for other upcoming events
             return (
               <div key={event.id} className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm cursor-pointer hover:border-[#d44211]/30 transition-colors" onClick={() => setView('calendar')}>
-                <div className="flex-shrink-0 w-14 h-14 bg-slate-50 rounded-lg flex flex-col items-center justify-center border border-slate-200">
-                  <span className="text-slate-700 font-black text-xl leading-none">{getDay(event.date)}</span>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">{getMonthShort(event.date)}</span>
-                </div>
+                  <div className="w-16 h-16 bg-[#d44211]/5 flex flex-col items-center justify-center p-2 text-center border border-[#d44211]/10 rounded-lg">
+                    <div className="text-[#d44211] font-black text-xl leading-none">{getDay(event.date)}</div>
+                    <div className="text-[#d44211]/60 text-[10px] font-black uppercase tracking-widest mt-1">{getMonthShort(event.date)}</div>
+                  </div>
                 <div className="flex flex-col flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[10px] font-bold text-[#d44211] uppercase tracking-wider">{event.type}</span>

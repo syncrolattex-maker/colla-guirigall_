@@ -123,6 +123,98 @@ function NotifyModal({ member, onClose }: { member: Member; onClose: () => void 
   );
 }
 
+// ─── Add Member Modal ──────────────────────────────────────────────────────────
+function AddMemberModal({ onClose, onAdd, adding }: { onClose: () => void; onAdd: (name: string, email: string, instrument: string) => Promise<void>; adding: boolean }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [instrument, setInstrument] = useState('Sense assignar');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onAdd(name.trim(), email.trim(), instrument);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
+        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <Users size={24} />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-900 text-lg tracking-tight">Afegir Músic Manual</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Registre Intern</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors bg-white w-10 h-10 rounded-xl flex items-center justify-center border border-slate-100 shadow-sm">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Nom Complet *</label>
+              <input
+                required
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Ex: Joan Petit"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:bg-white focus:border-primary focus:outline-none transition-all placeholder:text-slate-300"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Correu (Opcional)</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Ex: joan@exemple.com"
+                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:bg-white focus:border-primary focus:outline-none transition-all placeholder:text-slate-300"
+              />
+              <p className="text-[10px] text-slate-400 mt-2 italic px-1">Si no té correu, es generarà un identificador intern.</p>
+            </div>
+            
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Instrument</label>
+              <select
+                value={instrument}
+                onChange={e => setInstrument(e.target.value)}
+                className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:bg-white focus:border-primary focus:outline-none transition-all appearance-none cursor-pointer"
+              >
+                <option value="Sense assignar">Sense assignar</option>
+                <option value="Dolçaina">Dolçaina</option>
+                <option value="Tabal">Tabal</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-8 py-4 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-200 transition-all font-sans"
+            >
+              Cancel·lar
+            </button>
+            <button
+              type="submit"
+              disabled={adding || !name.trim()}
+              className="flex-1 px-8 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:shadow-none font-sans"
+            >
+              {adding ? 'Afegint...' : 'Afegir Músic'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Member Card ─────────────────────────────────────────────────────────────
 const MemberCard: React.FC<{
   member: Member;
@@ -270,13 +362,15 @@ export default function Admin({ user }: AdminProps) {
   const [attendances, setAttendances] = useState<Record<string, {status: string, convocat: boolean}>>({});
   const [loading, setLoading] = useState(true);
   const [memberSearch, setMemberSearch] = useState('');
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
 
   const fetchEvents = async () => {
     const now = new Date().getTime();
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .in('type', ['Actuació', 'Intercanvi', 'Final de curs'])
+      .or('type.ilike.Assaig%,type.eq.Intercanvi,type.eq.Final de curs,type.eq.Actuació')
       .gte('date', new Date(now - 86400000).toISOString())
       .order('date', { ascending: true });
     if (error) console.error("Error fetching events:", error);
@@ -375,8 +469,8 @@ export default function Admin({ user }: AdminProps) {
       const eventDate = event ? new Date(event.date).toLocaleString('ca-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
       const notifications = combinedData.filter(m => m.convocat).map(m => ({
         userid: m.uid,
-        title: 'Convocatòria Confirmada',
-        message: `Has estat convocat per a l'actuació "${eventTitle}" el dia ${eventDate}. Revisa el calendari per a més detalls.`,
+        title: `Convocatoria: ${eventTitle}`,
+        message: `Has estat convocat per a l'actuacio "${eventTitle}" el dia ${eventDate}. Revisa el calendari per a mes detalls.`,
         read: false, createdat: new Date().toISOString(), link: 'calendar', eventid: selectedEventId,
         send_email: true
       }));
@@ -438,6 +532,33 @@ export default function Admin({ user }: AdminProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     return new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'short' }).format(new Date(dateString));
+  };
+
+  const handleAddMember = async (name: string, email: string, instrument: string) => {
+    setAddingMember(true);
+    try {
+      // Use a more robust unique ID for manual users
+      const manualId = `man-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
+      
+      const { error } = await supabase.from('users').insert([{
+        uid: manualId,
+        name: name,
+        email: email || `${manualId}@manual-entry.colla`,
+        instrument,
+        role: 'member'
+      }]);
+
+      if (error) throw error;
+      
+      await fetchMembers();
+      setShowAddMember(false);
+      alert(`${name} ha estat afegit correctament.`);
+    } catch (error: any) {
+      console.error("Error adding member:", error);
+      alert(`Error en afegir el membre: ${error.message || 'Error desconegut'}`);
+    } finally {
+      setAddingMember(false);
+    }
   };
 
   const combinedData = members.map(m => ({
@@ -609,14 +730,13 @@ export default function Admin({ user }: AdminProps) {
                       <th className="px-10 py-6">Músic</th>
                       <th className="px-10 py-6">Instrument</th>
                       <th className="px-10 py-6">Estat Disponibilitat</th>
-                      <th className="px-10 py-6 text-right">Accions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100/50">
                     {loading ? (
-                      <tr><td colSpan={5} className="px-10 py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></td></tr>
+                      <tr><td colSpan={4} className="px-10 py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></td></tr>
                     ) : combinedData.length === 0 ? (
-                      <tr><td colSpan={5} className="px-10 py-32 text-center space-y-4">
+                      <tr><td colSpan={4} className="px-10 py-32 text-center space-y-4">
                         <Users size={48} className="mx-auto text-slate-200" />
                         <p className="text-slate-400 font-medium italic">No hi ha músics registrats encara.</p>
                       </td></tr>
@@ -655,11 +775,6 @@ export default function Admin({ user }: AdminProps) {
                               <option value="No puc">No puc</option>
                             </select>
                           </td>
-                          <td className="px-10 py-6 text-right">
-                            <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-300 hover:text-primary hover:bg-primary/10 transition-all">
-                              <MoreVertical size={20} />
-                            </button>
-                          </td>
                         </tr>
                       ))
                     )}
@@ -695,21 +810,29 @@ export default function Admin({ user }: AdminProps) {
         {/* ── MÚSICS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === 'musics' && (
           <>
-            {/* Header */}
-            <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
-              <div className="space-y-2">
-                <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
-                  Gestió de <span className="text-gradient">Músics</span>
-                </h2>
-                <p className="text-slate-500 text-lg font-medium">Membres registrats a la colla, instruments i rols.</p>
-              </div>
-              <button
-                onClick={sendNotificationToAll}
-                className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/20 w-full xl:w-auto justify-center"
-              >
-                <Bell size={16} /> Notificar a tothom
-              </button>
-            </div>
+             {/* Header */}
+             <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+               <div className="space-y-2">
+                 <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
+                   Gestió de <span className="text-gradient">Músics</span>
+                 </h2>
+                 <p className="text-slate-500 text-lg font-medium">Membres registrats a la colla, instruments i rols.</p>
+               </div>
+               <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
+                 <button
+                   onClick={() => setShowAddMember(true)}
+                   className="flex items-center gap-3 px-8 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-primary/90 transition-all active:scale-95 shadow-xl shadow-primary/20 justify-center"
+                 >
+                   <Users size={16} /> Afegir Músic Manual
+                 </button>
+                 <button
+                   onClick={sendNotificationToAll}
+                   className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/20 justify-center"
+                 >
+                   <Bell size={16} /> Notificar a tothom
+                 </button>
+               </div>
+             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -773,6 +896,15 @@ export default function Admin({ user }: AdminProps) {
             <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">
               {filteredMembers.length} de {totalMembers} membres
             </p>
+
+            {/* Add Member Modal */}
+            {showAddMember && (
+              <AddMemberModal 
+                onClose={() => setShowAddMember(false)} 
+                onAdd={handleAddMember}
+                adding={addingMember}
+              />
+            )}
           </>
         )}
       </div>
