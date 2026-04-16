@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';

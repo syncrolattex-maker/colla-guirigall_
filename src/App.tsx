@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Music, LogOut, X, Pencil, Save, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Login from './components/Login';
