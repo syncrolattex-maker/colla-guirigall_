@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -24,7 +23,7 @@ interface Member {
   avatar: string;
 }
 
-type AdminTab = 'convocatories' | 'musics' | 'alertes';
+type AdminTab = 'convocatories' | 'musics' | 'alertes' | 'enquestes';
 
 // ─── Notify Modal ────────────────────────────────────────────────────────────
 function NotifyModal({ member, onClose }: { member: Member; onClose: () => void }) {
@@ -367,6 +366,11 @@ export default function Admin({ user }: AdminProps) {
     type: 'warning'
   });
   const [savingAlert, setSavingAlert] = useState(false);
+  
+  // Polls state
+  const [adminPolls, setAdminPolls] = useState<any[]>([]);
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: ['', ''] });
+  const [creatingPoll, setCreatingPoll] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -428,15 +432,23 @@ export default function Admin({ user }: AdminProps) {
     if (data) setGlobalAlert(data);
   };
 
+  const fetchAdminPolls = async () => {
+    const { data } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
+    if (data) setAdminPolls(data);
+  };
+
   useEffect(() => {
     fetchEvents();
     fetchMembers();
     fetchGlobalAlert();
+    fetchAdminPolls();
     const eventsChannel = supabase.channel('adm:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const usersChannel = supabase.channel('adm:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchMembers).subscribe();
+    const pollsChannel = supabase.channel('adm:polls').on('postgres_changes', { event: '*', schema: 'public', table: 'polls' }, fetchAdminPolls).subscribe();
     return () => {
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(usersChannel);
+      supabase.removeChannel(pollsChannel);
     };
   }, []);
 
@@ -456,6 +468,55 @@ export default function Admin({ user }: AdminProps) {
       alert("Error en desar l'avís.");
     } finally {
       setSavingAlert(false);
+    }
+  };
+
+  const handleCreatePoll = async () => {
+    if (!newPoll.title.trim() || newPoll.options.filter(o => o.trim() !== '').length < 2) {
+      alert("L'enquesta necessita un títol i almenys 2 opcions vàlides.");
+      return;
+    }
+    setCreatingPoll(true);
+    try {
+      // 1. Create Poll
+      const { data: pollData, error: pollError } = await supabase.from('polls').insert([{
+        title: newPoll.title.trim(),
+        description: newPoll.description.trim() || null,
+        deadline: newPoll.deadline ? new Date(newPoll.deadline).toISOString() : null,
+        created_by: user.uid
+      }]).select().single();
+      
+      if (pollError) throw pollError;
+
+      // 2. Create Options
+      const validOptions = newPoll.options.filter(o => o.trim() !== '').map(text => ({
+        poll_id: pollData.id,
+        text: text.trim()
+      }));
+      
+      const { error: optionsError } = await supabase.from('poll_options').insert(validOptions);
+      if (optionsError) throw optionsError;
+
+      alert("Enquesta creada correctament!");
+      setNewPoll({ title: '', description: '', deadline: '', options: ['', ''] });
+      fetchAdminPolls();
+    } catch (err) {
+      console.error("Error creating poll:", err);
+      alert("Error en crear l'enquesta.");
+    } finally {
+      setCreatingPoll(false);
+    }
+  };
+
+  const handleDeletePoll = async (pollId: number) => {
+    if (!confirm("Vols esborrar aquesta enquesta? S'esborraran també els vots emesos.")) return;
+    try {
+      const { error } = await supabase.from('polls').delete().eq('id', pollId);
+      if (error) throw error;
+      fetchAdminPolls();
+    } catch (err) {
+      console.error("Error deleting poll:", err);
+      alert("Error en esborrar l'enquesta.");
     }
   };
 
@@ -627,6 +688,7 @@ export default function Admin({ user }: AdminProps) {
     { id: 'convocatories' as AdminTab, label: 'Convocatòries', icon: Calendar },
     { id: 'musics' as AdminTab, label: 'Músics', icon: Users },
     { id: 'alertes' as AdminTab, label: 'Alertes', icon: Bell },
+    { id: 'enquestes' as AdminTab, label: 'Enquestes', icon: PieChart },
   ];
 
   return (
@@ -755,6 +817,131 @@ export default function Admin({ user }: AdminProps) {
                   L'avís s'actualitzarà automàticament a tots els dispositius dels membres sense necessitat de reiniciar l'aplicació.
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ENQUESTES TAB ──────────────────────────────────────────────────────── */}
+        {activeTab === 'enquestes' && (
+          <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Nova <span className="text-gradient">Enquesta</span></h2>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Crea votacions per a la colla</p>
+            </div>
+
+            <div className="glass rounded-[3rem] border-white/40 p-10 shadow-2xl space-y-8 max-w-2xl">
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Títol de l'Enquesta *</label>
+                <input 
+                  type="text"
+                  value={newPoll.title}
+                  onChange={(e) => setNewPoll({...newPoll, title: e.target.value})}
+                  className="w-full p-6 bg-slate-50 border-2 border-white/40 rounded-3xl text-sm font-bold focus:bg-white focus:border-primary focus:outline-none transition-all"
+                  placeholder="Ex: Què us sembla l'horari dels divendres?"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Descripció (Opcional)</label>
+                <textarea 
+                  value={newPoll.description}
+                  onChange={(e) => setNewPoll({...newPoll, description: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-2 border-white/40 rounded-2xl text-sm font-medium focus:bg-white focus:border-primary focus:outline-none transition-all min-h-[80px]"
+                  placeholder="Ex: Volem ajustar els horaris per adaptar-nos millor..."
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400">Opcions de Resposta *</label>
+                  <button 
+                    onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, '']})}
+                    className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:text-primary/80"
+                  >
+                    <Plus size={14} /> Afegir Opció
+                  </button>
+                </div>
+                {newPoll.options.map((opt, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input 
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...newPoll.options];
+                        newOpts[i] = e.target.value;
+                        setNewPoll({...newPoll, options: newOpts});
+                      }}
+                      className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:border-primary focus:outline-none transition-all"
+                      placeholder={`Opció ${i + 1}`}
+                    />
+                    {newPoll.options.length > 2 && (
+                      <button 
+                        onClick={() => {
+                          const newOpts = newPoll.options.filter((_, index) => index !== i);
+                          setNewPoll({...newPoll, options: newOpts});
+                        }}
+                        className="w-12 flex items-center justify-center text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-2xl transition-colors shrink-0"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Data Límit (Opcional)</label>
+                <input 
+                  type="datetime-local"
+                  value={newPoll.deadline}
+                  onChange={(e) => setNewPoll({...newPoll, deadline: e.target.value})}
+                  className="w-full p-4 bg-slate-50 border-2 border-white/40 rounded-2xl text-sm font-bold text-slate-700 focus:bg-white focus:border-primary focus:outline-none transition-all"
+                />
+                <p className="text-[10px] text-slate-400 font-bold italic mt-1">L'enquesta es tancarà automàticament en aquesta data passada.</p>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100">
+                <button 
+                  onClick={handleCreatePoll}
+                  disabled={creatingPoll}
+                  className="w-full py-5 bg-primary text-white font-black uppercase tracking-widest text-xs rounded-[2rem] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {creatingPoll ? <div className="animate-spin w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> : <Save size={18} />}
+                  Publicar Enquesta
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-8 space-y-6 max-w-2xl">
+              <h3 className="text-lg font-black text-slate-900">Enquestes Existents</h3>
+              {adminPolls.length === 0 ? (
+                <p className="text-sm text-slate-500 font-medium italic">No hi ha enquestes encara.</p>
+              ) : (
+                <div className="space-y-3">
+                  {adminPolls.map(poll => (
+                    <div key={poll.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                      <div>
+                        <h4 className="font-bold text-slate-900 line-clamp-1">{poll.title}</h4>
+                        <div className="flex gap-3 text-xs text-slate-400 mt-1">
+                          <span>Creada: {new Date(poll.created_at).toLocaleDateString('ca-ES')}</span>
+                          {poll.deadline && (
+                            <span className={new Date(poll.deadline) < new Date() ? 'text-red-400 font-bold' : 'text-slate-500'}>
+                              Límit: {new Date(poll.deadline).toLocaleDateString('ca-ES')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleDeletePoll(poll.id)}
+                        className="text-slate-400 hover:text-red-500 p-2 sm:p-3 bg-slate-50 hover:bg-red-50 rounded-xl transition-colors shrink-0"
+                        title="Esborrar Enquesta"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

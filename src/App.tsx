@@ -9,8 +9,9 @@ import Rehearsal from './views/Rehearsal';
 import Admin from './views/Admin';
 import BottomNav from './components/BottomNav';
 import NotificationBell from './components/NotificationBell';
+import PollsView from './views/PollsView';
 
-export type View = 'dashboard' | 'repertoire' | 'calendar' | 'rehearsal' | 'admin';
+export type View = 'dashboard' | 'repertoire' | 'calendar' | 'rehearsal' | 'polls' | 'admin';
 
 export interface UserData {
   uid: string;
@@ -280,6 +281,7 @@ export default function App() {
       case 'repertoire': return <Repertoire user={user} />;
       case 'calendar': return <CalendarView user={user} selectedEventId={selectedEventId} setSelectedEventId={setSelectedEventId} />;
       case 'rehearsal': return <Rehearsal user={user} />;
+      case 'polls': return <PollsView user={user} />;
       case 'admin': return user.role === 'admin' ? <Admin user={user} /> : <Dashboard setView={setCurrentView} user={user} />;
       default: return <Dashboard setView={setCurrentView} user={user} />;
     }
@@ -302,6 +304,7 @@ export default function App() {
             <button onClick={() => setCurrentView('repertoire')} className={`text-sm font-bold tracking-tight ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
             <button onClick={() => setCurrentView('calendar')} className={`text-sm font-bold tracking-tight ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
             <button onClick={() => setCurrentView('rehearsal')} className={`text-sm font-bold tracking-tight ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
+            <button onClick={() => setCurrentView('polls')} className={`text-sm font-bold tracking-tight ${currentView === 'polls' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Enquestes</button>
             {user.role === 'admin' && (
               <button onClick={() => setCurrentView('admin')} className={`text-sm font-bold tracking-tight ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
             )}

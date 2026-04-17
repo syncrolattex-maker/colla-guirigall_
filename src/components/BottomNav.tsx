@@ -1,4 +1,4 @@
-import { Home, Music, Calendar, Users, Shield } from 'lucide-react';
+import { Home, Music, Calendar, Users, Shield, PieChart } from 'lucide-react';
 import { View } from '../App';
 
 export default function BottomNav({ currentView, setCurrentView, userRole }: { currentView: View, setCurrentView: (v: View) => void, userRole?: string }) {
@@ -7,6 +7,7 @@ export default function BottomNav({ currentView, setCurrentView, userRole }: { c
     { id: 'repertoire', label: 'Repertori', icon: Music },
     { id: 'calendar', label: 'Calendari', icon: Calendar },
     { id: 'rehearsal', label: 'Gestió', icon: Users },
+    { id: 'polls', label: 'Enquestes', icon: PieChart },
     ...(userRole === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
   ];
 
