@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
           month: "long",
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: "Europe/Madrid",
         });
         eventDetails = `
           <div style="background: #fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px; margin-top:24px;">
