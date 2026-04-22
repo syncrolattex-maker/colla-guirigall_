@@ -131,11 +131,20 @@ Deno.serve(async (req) => {
           timeZone: "Europe/Madrid",
         });
         eventDetails = `
-          <div style="background: #fff; border:1px solid #e2e8f0; border-radius:16px; padding:24px; margin-top:24px;">
-            <p style="margin:0;font-size:12px;font-weight:900;color:#d44211;text-transform:uppercase;letter-spacing:0.1em;">${eventData.type}</p>
-            <h3 style="margin:8px 0;font-size:20px;font-weight:900;color:#0f172a;">${eventData.title}</h3>
-            <p style="margin:4px 0;font-size:14px;color:#475569;">📅 ${dateStr}</p>
-            ${eventData.location ? `<p style="margin:4px 0;font-size:14px;color:#475569;">📍 ${eventData.location}</p>` : ""}
+          <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px; margin-top: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <div style="display: inline-block; padding: 4px 12px; background-color: #fef2f2; border-radius: 100px;">
+              <p style="margin: 0; font-size: 11px; font-weight: 800; color: #d44211; text-transform: uppercase; letter-spacing: 0.1em;">${eventData.type}</p>
+            </div>
+            <h3 style="margin: 12px 0 8px 0; font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1.2;">${eventData.title}</h3>
+            <div style="margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #475569;">
+                <span style="font-size: 18px; margin-right: 8px;">📅</span> ${dateStr}
+              </p>
+              ${eventData.location ? `
+              <p style="margin: 0; font-size: 14px; font-weight: 600; color: #64748b;">
+                <span style="font-size: 18px; margin-right: 8px;">📍</span> ${eventData.location}
+              </p>` : ""}
+            </div>
           </div>
         `;
       }
@@ -144,35 +153,47 @@ Deno.serve(async (req) => {
     // 3. Build HTML Email
     const firstName = userData.name.split(" ")[0];
     const emailHtml = `<!DOCTYPE html>
-<html>
+<html lang="ca">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8f6f6;margin:0;padding:0;}
-    .wrap{max-width:600px;margin:40px auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 10px 25px -5px rgba(0,0,0,.1);}
-    .header{background:#d44211;padding:40px 20px;text-align:center;color:#fff;}
-    .content{padding:40px;}
-    .footer{background:#f1f5f9;padding:20px;text-align:center;color:#94a3b8;font-size:12px;}
-    .btn{display:inline-block;padding:16px 32px;background:#d44211;color:#fff;text-decoration:none;border-radius:12px;font-weight:bold;margin-top:24px;}
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 32px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+    .header { background: linear-gradient(135deg, #d44211 0%, #b5380e 100%); padding: 48px 32px; text-align: center; }
+    .content { padding: 40px 32px; }
+    .footer { padding: 32px; text-align: center; color: #94a3b8; font-size: 13px; background-color: #f8fafc; }
+    .btn { display: inline-block; padding: 18px 36px; background-color: #d44211; color: #ffffff !important; text-decoration: none; border-radius: 16px; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 10px 15px -3px rgba(212, 66, 17, 0.3); }
+    .quote-box { background-color: #f8fafc; border-left: 4px solid #d44211; padding: 20px; border-radius: 0 16px 16px 0; margin-bottom: 32px; }
+    @media only screen and (max-width: 600px) {
+      .container { margin: 0; border-radius: 0; }
+      .content { padding: 32px 20px; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="container">
     <div class="header">
-      <h1 style="margin:0;font-size:24px;font-weight:900;">🎵 Colla Guirigall</h1>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #ffffff; letter-spacing: -0.02em;">🎶 Colla Guirigall</h1>
     </div>
     <div class="content">
-      <h2 style="margin:0 0 16px;font-size:20px;color:#0f172a;">Hola, ${firstName}!</h2>
-      <p style="font-size:16px;line-height:1.6;color:#475569;margin-bottom:24px;"><strong>${record.title}</strong></p>
-      <div style="background:#f8fafc;border-left:4px solid #d44211;padding:16px;font-style:italic;color:#334155;">
-        "${record.message}"
+      <h2 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 900; color: #0f172a; letter-spacing: -0.02em;">Hola, ${firstName}!</h2>
+      <p style="font-size: 16px; font-weight: 700; color: #d44211; margin-bottom: 24px;">${record.title}</p>
+      
+      <div class="quote-box">
+        <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #334155; font-style: italic;">"${record.message}"</p>
       </div>
+
       ${eventDetails}
-      <div style="text-align:center;">
-        <a href="https://colla-guirigall.vercel.app/" class="btn">Obrir l'App</a>
+
+      <div style="text-align: center; margin-top: 48px;">
+        <a href="https://colla-guirigall.vercel.app/" class="btn">Obrir l'Aplicació</a>
       </div>
     </div>
-    <div class="footer">&copy; 2026 Colla Guirigall &mdash; guirigallcolla@gmail.com</div>
+    <div class="footer">
+      <p style="margin: 0 0 8px 0; font-weight: 700; color: #64748b;">Colla Guirigall</p>
+      <p style="margin: 0;">guirigallcolla@gmail.com &bull; 2026</p>
+    </div>
   </div>
 </body>
 </html>`;
