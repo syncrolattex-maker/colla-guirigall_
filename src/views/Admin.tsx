@@ -435,6 +435,8 @@ export default function Admin({ user }: AdminProps) {
     if (data) setGlobalAlert(data);
   };
 
+  const fetchAdminPolls = async () => {
+    const { data } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
     if (data) setAdminPolls(data);
   };
   
