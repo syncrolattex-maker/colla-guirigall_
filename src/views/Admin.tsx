@@ -489,7 +489,7 @@ export default function Admin({ user }: AdminProps) {
 
   const handleCreatePoll = async () => {
     if (!newPoll.title.trim() || newPoll.options.filter(o => o.trim() !== '').length < 1) {
-      alert("L'enquesta necessita un títol i almenys 1 opció vàlida.");
+      alert("ATENCIÓ: L'enquesta necessita un títol i almenys 1 opció vàlida.");
       return;
     }
     setCreatingPoll(true);
@@ -841,9 +841,10 @@ export default function Admin({ user }: AdminProps) {
         {/* ── ENQUESTES TAB ──────────────────────────────────────────────────────── */}
         {activeTab === 'enquestes' && (
           <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 relative">
               <h2 className="text-4xl font-black text-slate-900 tracking-tight">Nova <span className="text-gradient">Enquesta</span></h2>
               <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Crea votacions per a la colla</p>
+              <span className="absolute -top-4 right-0 px-3 py-1 bg-slate-900 text-white text-[8px] font-black rounded-lg uppercase tracking-widest">Build v2.2 - Single Option Active</span>
             </div>
 
             <div className="glass rounded-[3rem] border-white/40 p-10 shadow-2xl space-y-8 max-w-2xl">
@@ -915,7 +916,7 @@ export default function Admin({ user }: AdminProps) {
                       className="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:border-primary focus:outline-none transition-all"
                       placeholder={`Opció ${i + 1}`}
                     />
-                    {newPoll.options.length > 2 && (
+                    {newPoll.options.length > 1 && (
                       <button 
                         onClick={() => {
                           const newOpts = newPoll.options.filter((_, index) => index !== i);
