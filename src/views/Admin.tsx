@@ -441,7 +441,7 @@ export default function Admin({ user }: AdminProps) {
   const fetchPollDetails = async () => {
     try {
       const { data: oData } = await supabase.from('poll_options').select('*');
-      const { data: vData } = await supabase.from('poll_votes').select('*, users(name)');
+      const { data: vData } = await supabase.from('poll_votes').select('*, users(name, instrument)');
       if (oData && vData) {
         setPollDetails({ options: oData, votes: vData });
       }
@@ -1011,53 +1011,58 @@ export default function Admin({ user }: AdminProps) {
                         {/* Expanded Results View */}
                         {isExpanded && (
                           <div className="px-8 pb-8 animate-in fade-in slide-in-from-top-2 duration-300">
-                             <div className="p-6 bg-slate-50 rounded-3xl space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                   {/* Column 1: Summary */}
-                                   <div className="space-y-4">
-                                      <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-2">Tally Global</h5>
-                                      <div className="space-y-2">
-                                        {options.map(opt => {
-                                          const optVotes = votes.filter(v => v.option_id === opt.id);
-                                          const optQuantity = optVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
-                                          const perc = totalVotes > 0 ? Math.round((optVotes.length / totalVotes) * 100) : 0;
-                                          
-                                          return (
-                                            <div key={opt.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
-                                              <span className="text-sm font-bold text-slate-700">{opt.text}</span>
-                                              <div className="flex items-center gap-3">
-                                                {poll.type === 'order' ? (
-                                                  <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase">
-                                                    {optQuantity} unitats
-                                                  </span>
-                                                ) : (
-                                                  <span className="text-xs font-black text-slate-400">{perc}%</span>
-                                                )}
-                                                <span className="text-[10px] font-black text-slate-900">{optVotes.length} pers.</span>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                   </div>
+                             <div className="p-6 bg-slate-50 rounded-3xl space-y-8">
+                                {options.map(opt => {
+                                  const optVotes = votes.filter(v => v.option_id === opt.id);
+                                  const optQuantity = optVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
+                                  
+                                  if (optVotes.length === 0 && options.length > 1) return null;
 
-                                   {/* Column 2: Participants List */}
-                                   <div className="space-y-4">
-                                      <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-2">Llistat de Persones</h5>
-                                      <div className="max-h-48 overflow-y-auto space-y-1 pr-2">
-                                        {votes.length === 0 && <p className="text-[10px] italic text-slate-400">Encara no hi ha respostes</p>}
-                                        {votes.map(v => (
-                                          <div key={v.id} className="flex justify-between items-center text-xs py-1.5 border-b border-slate-100 last:border-0">
-                                            <span className="text-slate-600 font-medium">{v.users?.name || 'Anònim'}</span>
-                                            <span className="text-slate-400 font-bold">
-                                              {options.find(o => o.id === v.option_id)?.text} 
-                                              {poll.type === 'order' && ` (${v.quantity || 1})`}
+                                  return (
+                                    <div key={opt.id} className="space-y-4">
+                                      <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                                        <div className="flex items-center gap-3">
+                                          <div className={`w-2 h-2 rounded-full ${poll.type === 'order' ? 'bg-amber-500' : 'bg-primary'}`}></div>
+                                          <h5 className="text-sm font-black text-slate-900 uppercase tracking-wide">{opt.text}</h5>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{optVotes.length} persones</span>
+                                          {poll.type === 'order' && (
+                                            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">
+                                              TOTAL: {optQuantity} unitats
                                             </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {optVotes.map(v => (
+                                          <div key={v.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-primary/20 transition-all">
+                                            <div className="min-w-0">
+                                              <p className="text-sm font-bold text-slate-900 truncate">{v.users?.name || 'Anònim'}</p>
+                                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{v.users?.instrument || 'Sense instrument'}</p>
+                                            </div>
+                                            {poll.type === 'order' && (
+                                              <div className="bg-slate-50 px-3 py-1 rounded-xl border border-slate-100">
+                                                <span className="text-xs font-black text-primary">x{v.quantity || 1}</span>
+                                              </div>
+                                            )}
                                           </div>
                                         ))}
+                                        {optVotes.length === 0 && (
+                                          <p className="text-xs italic text-slate-400 py-2">Ningú ha triat aquesta opció encara.</p>
+                                        )}
                                       </div>
-                                   </div>
-                                </div>
+                                    </div>
+                                  );
+                                })}
+                                
+                                {votes.length === 0 && (
+                                  <div className="text-center py-10 space-y-3">
+                                    <Package size={48} className="mx-auto text-slate-200" />
+                                    <p className="text-slate-400 font-medium italic">Encara no hi ha cap participació en aquesta {poll.type === 'order' ? 'comanda' : 'enquesta'}.</p>
+                                  </div>
+                                )}
                              </div>
                           </div>
                         )}
