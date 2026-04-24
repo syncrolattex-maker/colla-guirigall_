@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
+import { getTypeColors } from '../utils/eventColors';
 
 interface AppEvent {
   id: number;
@@ -157,14 +158,22 @@ export default function Dashboard({ setView, user }: DashboardProps) {
           upcomingEvents.map((event, index) => {
             const myAttendance = attendances[event.id]?.status;
             const isFirst = index === 0;
-
+            const colors = getTypeColors(event.type);
+            
             if (isFirst) {
               // Highlight the very next event
               return (
-                <div key={event.id} className="flex flex-col gap-3 p-4 rounded-xl bg-white border border-[#d44211]/20 shadow-md">
+                <div 
+                  key={event.id} 
+                  className="flex flex-col gap-3 p-4 rounded-xl bg-white border shadow-md"
+                  style={{ borderColor: colors.border }}
+                >
                   <div className="flex justify-between items-start">
                     <div className="flex flex-col gap-1">
-                      <span className="inline-flex items-center rounded-full bg-[#d44211]/10 px-2 py-0.5 text-xs font-bold text-[#d44211] w-fit uppercase tracking-wider">
+                      <span 
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold w-fit uppercase tracking-wider"
+                        style={{ backgroundColor: colors.bg, color: colors.dark }}
+                      >
                         {event.type}
                       </span>
                       <h3 className="text-lg font-black text-slate-900 leading-tight">{event.title}</h3>
@@ -222,14 +231,26 @@ export default function Dashboard({ setView, user }: DashboardProps) {
 
             // Standard list item for other upcoming events
             return (
-              <div key={event.id} className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm cursor-pointer hover:border-[#d44211]/30 transition-colors" onClick={() => setView('calendar')}>
-                  <div className="w-16 h-16 bg-[#d44211]/5 flex flex-col items-center justify-center p-2 text-center border border-[#d44211]/10 rounded-lg">
-                    <div className="text-[#d44211] font-black text-xl leading-none">{getDay(event.date)}</div>
-                    <div className="text-[#d44211]/60 text-[10px] font-black uppercase tracking-widest mt-1">{getMonthShort(event.date)}</div>
+              <div 
+                key={event.id} 
+                className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-100 shadow-sm cursor-pointer hover:border-slate-300 transition-colors" 
+                onClick={() => setView('calendar')}
+              >
+                  <div 
+                    className="w-16 h-16 flex flex-col items-center justify-center p-2 text-center border rounded-lg"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border }}
+                  >
+                    <div className="font-black text-xl leading-none" style={{ color: colors.dark }}>{getDay(event.date)}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-60" style={{ color: colors.dark }}>{getMonthShort(event.date)}</div>
                   </div>
                 <div className="flex flex-col flex-1 overflow-hidden">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-bold text-[#d44211] uppercase tracking-wider">{event.type}</span>
+                    <span 
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: colors.dark }}
+                    >
+                      {event.type}
+                    </span>
                     {event.ispublished && attendances[event.id]?.convocat && (
                       <span className="w-2 h-2 rounded-full bg-[#d44211]" title="Convocat"></span>
                     )}

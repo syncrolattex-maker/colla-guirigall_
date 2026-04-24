@@ -37,6 +37,8 @@ interface Attendance {
   updatedat?: string;
 }
 
+import { getTypeColors } from '../utils/eventColors';
+
 export default function CalendarView({ user, selectedEventId, setSelectedEventId }: CalendarProps) {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [allAttendances, setAllAttendances] = useState<Record<number, Record<string, Attendance>>>({});
@@ -363,18 +365,27 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               const amIConvocat = eventAtts[user.uid]?.convocat;
               const confirmedCount = users.filter(u => eventAtts[u.uid]?.status === 'Vull anar-hi').length;
               const declinedCount = users.filter(u => eventAtts[u.uid]?.status === 'No puc').length;
+              const colors = getTypeColors(event.type);
               
               return (
-                <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-lg hover:border-[#d44211]/20 transition-all group">
-                  <div className="w-full md:w-32 h-24 md:h-auto bg-[#d44211]/5 flex flex-col items-center justify-center p-4 text-center border-b md:border-b-0 md:border-r border-[#d44211]/10">
-                    <div className="text-[#d44211] font-black text-2xl leading-none">{new Date(event.date).getDate()}</div>
-                    <div className="text-[#d44211]/60 text-[10px] font-black uppercase tracking-widest mt-1">{new Date(event.date).toLocaleDateString('ca-ES', { month: 'short' }).toUpperCase()}</div>
+                <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-lg hover:border-slate-200 transition-all group">
+                  <div 
+                    className="w-full md:w-32 h-24 md:h-auto flex flex-col items-center justify-center p-4 text-center border-b md:border-b-0 md:border-r"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border }}
+                  >
+                    <div className="font-black text-2xl leading-none" style={{ color: colors.dark }}>{new Date(event.date).getDate()}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-60" style={{ color: colors.dark }}>{new Date(event.date).toLocaleDateString('ca-ES', { month: 'short' }).toUpperCase()}</div>
                   </div>
                   <div className="flex-1 p-5 flex flex-col justify-between">
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div className="flex-1 min-w-0 w-full space-y-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-[#d44211] uppercase tracking-widest bg-[#d44211]/5 px-2 py-0.5 rounded-full">{event.type}</span>
+                          <span 
+                            className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: colors.bg, color: colors.dark, border: `1px solid ${colors.border}` }}
+                          >
+                            {event.type}
+                          </span>
                           {event.is_cancelled && (
                             <span className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-pulse">
                               🚫 Cancel·lat
@@ -538,7 +549,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
             </div>
             <div className="p-6 overflow-y-auto">
               <div className="mb-6">
-                <div className="inline-block px-3 py-1 bg-[#d44211]/10 text-[#d44211] font-bold text-sm rounded-full mb-3">
+                <div 
+                  className="inline-block px-4 py-1 font-black text-[10px] uppercase tracking-[0.2em] rounded-full mb-4 border"
+                  style={{ backgroundColor: getTypeColors(viewingEvent.type).bg, color: getTypeColors(viewingEvent.type).dark, borderColor: getTypeColors(viewingEvent.type).border }}
+                >
                   {viewingEvent.type}
                 </div>
                 <h2 className="text-2xl font-black text-slate-900 mb-2">{viewingEvent.title}</h2>
