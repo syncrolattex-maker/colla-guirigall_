@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -370,7 +370,7 @@ export default function Admin({ user }: AdminProps) {
   
   // Polls state
   const [adminPolls, setAdminPolls] = useState<any[]>([]);
-  const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: ['', ''] });
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: ['', ''], type: 'standard' });
   const [creatingPoll, setCreatingPoll] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
@@ -484,7 +484,8 @@ export default function Admin({ user }: AdminProps) {
         title: newPoll.title.trim(),
         description: newPoll.description.trim() || null,
         deadline: newPoll.deadline ? new Date(newPoll.deadline).toISOString() : null,
-        created_by: user.uid
+        created_by: user.uid,
+        type: newPoll.type
       }]).select().single();
       
       if (pollError) throw pollError;
@@ -499,7 +500,7 @@ export default function Admin({ user }: AdminProps) {
       if (optionsError) throw optionsError;
 
       alert("Enquesta creada correctament!");
-      setNewPoll({ title: '', description: '', deadline: '', options: ['', ''] });
+      setNewPoll({ title: '', description: '', deadline: '', options: ['', ''], type: 'standard' });
       fetchAdminPolls();
     } catch (err) {
       console.error("Error creating poll:", err);
@@ -832,7 +833,29 @@ export default function Admin({ user }: AdminProps) {
 
             <div className="glass rounded-[3rem] border-white/40 p-10 shadow-2xl space-y-8 max-w-2xl">
               <div className="space-y-4">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Títol de l'Enquesta *</label>
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tipus de Publicació</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setNewPoll({...newPoll, type: 'standard'})}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'standard' ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
+                  >
+                    <PieChart size={24} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Enquesta de Votació</span>
+                  </button>
+                  <button 
+                    onClick={() => setNewPoll({...newPoll, type: 'order'})}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'order' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
+                  >
+                    <ShoppingBag size={24} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Pre-comanda / Llista</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  {newPoll.type === 'order' ? 'Títol de la Comanda *' : "Títol de l'Enquesta *"}
+                </label>
                 <input 
                   type="text"
                   value={newPoll.title}
@@ -854,7 +877,9 @@ export default function Admin({ user }: AdminProps) {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-black uppercase tracking-widest text-slate-400">Opcions de Resposta *</label>
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    {newPoll.type === 'order' ? 'Llista de Productes *' : 'Opcions de Resposta *'}
+                  </label>
                   <button 
                     onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, '']})}
                     className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:text-primary/80"
@@ -908,7 +933,7 @@ export default function Admin({ user }: AdminProps) {
                   className="w-full py-5 bg-primary text-white font-black uppercase tracking-widest text-xs rounded-[2rem] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
                 >
                   {creatingPoll ? <div className="animate-spin w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> : <Save size={18} />}
-                  Publicar Enquesta
+                  Publicar {newPoll.type === 'order' ? 'Comanda' : 'Enquesta'}
                 </button>
               </div>
             </div>

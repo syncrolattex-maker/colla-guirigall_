@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Clock, CheckCircle2, Users, AlertTriangle } from 'lucide-react';
+import { PieChart, Clock, CheckCircle2, Users, AlertTriangle, ShoppingBag, Package, Plus, Minus } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -10,6 +10,7 @@ export interface Poll {
   deadline: string;
   created_at: string;
   created_by: string;
+  type?: 'standard' | 'order';
 }
 
 export interface PollOption {
@@ -23,6 +24,7 @@ export interface PollVote {
   poll_id: number;
   option_id: number;
   user_id: string;
+  quantity?: number;
 }
 
 interface PollsViewProps {
@@ -33,18 +35,22 @@ export default function PollsView({ user }: PollsViewProps) {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [options, setOptions] = useState<PollOption[]>([]);
   const [votes, setVotes] = useState<PollVote[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<number | null>(null);
+  const [orderQuantity, setOrderQuantity] = useState<Record<number, number>>({});
 
   const fetchData = async () => {
     try {
       const { data: pData } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
       const { data: oData } = await supabase.from('poll_options').select('*');
       const { data: vData } = await supabase.from('poll_votes').select('*');
+      const { data: uData } = await supabase.from('users').select('*');
 
       if (pData) setPolls(pData);
       if (oData) setOptions(oData);
       if (vData) setVotes(vData);
+      if (uData) setUsers(uData);
     } catch (err) {
       console.error("Error fetching polls:", err);
     } finally {
@@ -73,13 +79,20 @@ export default function PollsView({ user }: PollsViewProps) {
     try {
       // Check if already voted
       const existingVote = votes.find(v => v.poll_id === pollId && v.user_id === user.uid);
+      const poll = polls.find(p => p.id === pollId);
+      const quantity = poll?.type === 'order' ? (orderQuantity[pollId] || 1) : 1;
+
       if (existingVote) {
-        await supabase.from('poll_votes').update({ option_id: optionId }).eq('id', existingVote.id);
+        await supabase.from('poll_votes').update({ 
+          option_id: optionId,
+          quantity: quantity
+        }).eq('id', existingVote.id);
       } else {
         await supabase.from('poll_votes').insert([{
           poll_id: pollId,
           option_id: optionId,
-          user_id: user.uid
+          user_id: user.uid,
+          quantity: quantity
         }]);
       }
       // Optimistic update
@@ -114,10 +127,10 @@ export default function PollsView({ user }: PollsViewProps) {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Enquestes
+              Enquestes i Comandes
             </h1>
             <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">
-              Votacions i decisions
+              Votacions i gestió de material
             </p>
           </div>
         </div>
@@ -174,29 +187,65 @@ export default function PollsView({ user }: PollsViewProps) {
                 </div>
 
                 <div className="space-y-3">
+                  {poll.type === 'order' && pollActive && !userVote && (
+                    <div className="mb-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-widest text-amber-700">Quantitat:</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => setOrderQuantity({ ...orderQuantity, [poll.id]: Math.max(1, (orderQuantity[poll.id] || 1) - 1) })}
+                          className="w-8 h-8 rounded-lg bg-white border border-amber-200 flex items-center justify-center text-amber-600 hover:bg-amber-100"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="text-lg font-black text-amber-900 w-8 text-center">{orderQuantity[poll.id] || 1}</span>
+                        <button 
+                          onClick={() => setOrderQuantity({ ...orderQuantity, [poll.id]: (orderQuantity[poll.id] || 1) + 1 })}
+                          className="w-8 h-8 rounded-lg bg-white border border-amber-200 flex items-center justify-center text-amber-600 hover:bg-amber-100"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {pollOptions.map((option) => {
-                    const optionVotes = pollVotes.filter(v => v.option_id === option.id).length;
-                    const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+                    const optionVotes = pollVotes.filter(v => v.option_id === option.id);
+                    const totalOptionQuantity = optionVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
+                    const percentage = totalVotes > 0 ? Math.round((optionVotes.length / totalVotes) * 100) : 0;
                     const isMyVote = userVote?.option_id === option.id;
 
                     if (showResults) {
                       return (
-                        <div key={option.id} className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 p-4 z-0">
-                          <div 
-                            className={`absolute inset-y-0 left-0 -z-10 transition-all duration-1000 ease-out ${isMyVote ? 'bg-primary/20' : 'bg-slate-200'}`} 
-                            style={{ width: `${percentage}%` }}
-                          />
-                          <div className="flex justify-between items-center gap-4">
-                            <div className="flex items-center gap-3">
-                              {isMyVote && <CheckCircle2 size={16} className="text-primary shrink-0" />}
-                              <span className={`text-sm font-bold ${isMyVote ? 'text-primary' : 'text-slate-700'}`}>
-                                {option.text}
+                        <div key={option.id} className="space-y-2">
+                          <div className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 p-4 z-0">
+                            <div 
+                              className={`absolute inset-y-0 left-0 -z-10 transition-all duration-1000 ease-out ${isMyVote ? (poll.type === 'order' ? 'bg-amber-500/10' : 'bg-primary/20') : 'bg-slate-200'}`} 
+                              style={{ width: poll.type === 'order' ? '0%' : `${percentage}%` }}
+                            />
+                            <div className="flex justify-between items-center gap-4">
+                              <div className="flex items-center gap-3">
+                                {isMyVote && <CheckCircle2 size={16} className={poll.type === 'order' ? 'text-amber-600' : 'text-primary'} />}
+                                <span className={`text-sm font-bold ${isMyVote ? (poll.type === 'order' ? 'text-amber-700' : 'text-primary') : 'text-slate-700'}`}>
+                                  {option.text}
+                                </span>
+                              </div>
+                              <span className="text-sm font-black text-slate-900 shrink-0">
+                                {poll.type === 'order' ? `${totalOptionQuantity} unitats` : `${percentage}%`}
                               </span>
                             </div>
-                            <span className="text-sm font-black text-slate-900 shrink-0">
-                              {percentage}%
-                            </span>
                           </div>
+                          {poll.type === 'order' && optionVotes.length > 0 && (
+                            <div className="flex flex-wrap gap-1 px-2">
+                              {optionVotes.map(v => {
+                                const u = users.find(user => user.uid === v.user_id);
+                                return (
+                                  <span key={v.id} className="text-[9px] bg-white border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
+                                    {u?.name.split(' ')[0]} ({v.quantity || 1})
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     } else {
@@ -205,12 +254,12 @@ export default function PollsView({ user }: PollsViewProps) {
                           key={option.id}
                           onClick={() => handleVote(poll.id, option.id)}
                           disabled={submitting === poll.id || !pollActive}
-                          className="w-full text-left p-4 rounded-2xl border-2 border-slate-100 bg-white hover:border-primary/40 hover:bg-primary/5 transition-all group flex justify-between items-center disabled:opacity-50"
+                          className={`w-full text-left p-4 rounded-2xl border-2 border-slate-100 bg-white hover:border-primary/40 hover:bg-primary/5 transition-all group flex justify-between items-center disabled:opacity-50 ${poll.type === 'order' ? 'hover:border-amber-500/40 hover:bg-amber-50' : ''}`}
                         >
-                          <span className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
+                          <span className={`text-sm font-bold text-slate-700 transition-colors ${poll.type === 'order' ? 'group-hover:text-amber-600' : 'group-hover:text-primary'}`}>
                             {option.text}
                           </span>
-                          <div className="w-5 h-5 rounded-full border-2 border-slate-200 group-hover:border-primary transition-colors"></div>
+                          <div className={`w-5 h-5 rounded-full border-2 border-slate-200 transition-colors ${poll.type === 'order' ? 'group-hover:border-amber-500' : 'group-hover:border-primary'}`}></div>
                         </button>
                       );
                     }
@@ -220,10 +269,24 @@ export default function PollsView({ user }: PollsViewProps) {
                 {showResults && (
                   <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-                      <Users size={14} /> {totalVotes} {totalVotes === 1 ? 'vot' : 'vots'} en total
+                      {poll.type === 'order' ? <Package size={14} /> : <Users size={14} />} 
+                      {poll.type === 'order' 
+                        ? `${totalVotes} persones han demanat` 
+                        : `${totalVotes} ${totalVotes === 1 ? 'vot' : 'vots'} en total`
+                      }
                     </span>
                     {pollActive && userVote && (
-                       <span className="text-[10px] font-bold text-primary/60 italic">Has votat</span>
+                       <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold italic ${poll.type === 'order' ? 'text-amber-600/60' : 'text-primary/60'}`}>
+                            {poll.type === 'order' ? `Has demanat ${userVote.quantity || 1}` : 'Has votat'}
+                          </span>
+                          <button 
+                            onClick={() => handleVote(poll.id, userVote.option_id)} // Trigger "re-vote" to update quantity if needed
+                            className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary underline"
+                          >
+                            Editar
+                          </button>
+                       </div>
                     )}
                   </div>
                 )}
