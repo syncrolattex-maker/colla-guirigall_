@@ -370,7 +370,7 @@ export default function Admin({ user }: AdminProps) {
   
   // Polls state
   const [adminPolls, setAdminPolls] = useState<any[]>([]);
-  const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: ['', ''], type: 'standard' });
+  const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: [''], type: 'standard' });
   const [creatingPoll, setCreatingPoll] = useState(false);
   const [pollDetails, setPollDetails] = useState<{options: any[], votes: any[]}>({ options: [], votes: [] });
   const [expandedPoll, setExpandedPoll] = useState<number | null>(null);
@@ -515,7 +515,7 @@ export default function Admin({ user }: AdminProps) {
       if (optionsError) throw optionsError;
 
       alert("Enquesta creada correctament!");
-      setNewPoll({ title: '', description: '', deadline: '', options: ['', ''], type: 'standard' });
+      setNewPoll({ title: '', description: '', deadline: '', options: [''], type: 'standard' });
       fetchAdminPolls();
     } catch (err) {
       console.error("Error creating poll:", err);
@@ -859,11 +859,7 @@ export default function Admin({ user }: AdminProps) {
                     <span className="text-[10px] font-black uppercase tracking-widest">Enquesta de Votació</span>
                   </button>
                   <button 
-                    onClick={() => setNewPoll({
-                      ...newPoll, 
-                      type: 'order', 
-                      options: newPoll.options.length === 2 && newPoll.options.every(o => o === '') ? [''] : newPoll.options
-                    })}
+                    onClick={() => setNewPoll({...newPoll, type: 'order'})}
                     className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'order' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
                   >
                     <ShoppingBag size={24} />
