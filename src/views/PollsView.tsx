@@ -189,7 +189,7 @@ export default function PollsView({ user }: PollsViewProps) {
                 </div>
 
                 <div className="space-y-3">
-                  {poll.type === 'order' && pollActive && !userVote && (
+                  {poll.type === 'order' && pollActive && (!userVote || isEditing[poll.id]) && (
                     <div className="mb-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
                       <span className="text-xs font-black uppercase tracking-widest text-amber-700">Quantitat:</span>
                       <div className="flex items-center gap-3">
