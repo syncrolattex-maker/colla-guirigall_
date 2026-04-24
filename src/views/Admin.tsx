@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -372,6 +372,8 @@ export default function Admin({ user }: AdminProps) {
   const [adminPolls, setAdminPolls] = useState<any[]>([]);
   const [newPoll, setNewPoll] = useState({ title: '', description: '', deadline: '', options: ['', ''], type: 'standard' });
   const [creatingPoll, setCreatingPoll] = useState(false);
+  const [pollDetails, setPollDetails] = useState<{options: any[], votes: any[]}>({ options: [], votes: [] });
+  const [expandedPoll, setExpandedPoll] = useState<number | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
@@ -433,9 +435,19 @@ export default function Admin({ user }: AdminProps) {
     if (data) setGlobalAlert(data);
   };
 
-  const fetchAdminPolls = async () => {
-    const { data } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
     if (data) setAdminPolls(data);
+  };
+  
+  const fetchPollDetails = async () => {
+    try {
+      const { data: oData } = await supabase.from('poll_options').select('*');
+      const { data: vData } = await supabase.from('poll_votes').select('*, users(name)');
+      if (oData && vData) {
+        setPollDetails({ options: oData, votes: vData });
+      }
+    } catch (err) {
+      console.error("Error fetching poll details:", err);
+    }
   };
 
   useEffect(() => {
@@ -443,13 +455,16 @@ export default function Admin({ user }: AdminProps) {
     fetchMembers();
     fetchGlobalAlert();
     fetchAdminPolls();
+    fetchPollDetails();
     const eventsChannel = supabase.channel('adm:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const usersChannel = supabase.channel('adm:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchMembers).subscribe();
     const pollsChannel = supabase.channel('adm:polls').on('postgres_changes', { event: '*', schema: 'public', table: 'polls' }, fetchAdminPolls).subscribe();
+    const votesChannel = supabase.channel('adm:votes').on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, fetchPollDetails).subscribe();
     return () => {
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(usersChannel);
       supabase.removeChannel(pollsChannel);
+      supabase.removeChannel(votesChannel);
     };
   }, []);
 
@@ -944,28 +959,111 @@ export default function Admin({ user }: AdminProps) {
                 <p className="text-sm text-slate-500 font-medium italic">No hi ha enquestes encara.</p>
               ) : (
                 <div className="space-y-3">
-                  {adminPolls.map(poll => (
-                    <div key={poll.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                      <div>
-                        <h4 className="font-bold text-slate-900 line-clamp-1">{poll.title}</h4>
-                        <div className="flex gap-3 text-xs text-slate-400 mt-1">
-                          <span>Creada: {new Date(poll.created_at).toLocaleDateString('ca-ES')}</span>
-                          {poll.deadline && (
-                            <span className={new Date(poll.deadline) < new Date() ? 'text-red-400 font-bold' : 'text-slate-500'}>
-                              Límit: {new Date(poll.deadline).toLocaleDateString('ca-ES')}
-                            </span>
-                          )}
+                  {adminPolls.map(poll => {
+                    const options = pollDetails.options.filter(o => o.poll_id === poll.id);
+                    const votes = pollDetails.votes.filter(v => v.poll_id === poll.id);
+                    const totalVotes = votes.length;
+                    const isExpanded = expandedPoll === poll.id;
+
+                    return (
+                      <div key={poll.id} className="flex flex-col bg-white border border-slate-100 rounded-[2rem] shadow-sm overflow-hidden transition-all duration-300">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {poll.type === 'order' ? (
+                                <span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                  <ShoppingBag size={10} /> Pre-comanda
+                                </span>
+                              ) : (
+                                <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                  <PieChart size={10} /> Enquesta
+                                </span>
+                              )}
+                              {poll.deadline && new Date(poll.deadline) < new Date() && (
+                                <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">Tancada</span>
+                              )}
+                            </div>
+                            <h4 className="font-black text-slate-900 text-lg tracking-tight truncate">{poll.title}</h4>
+                            <div className="flex gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                              <span>Creada: {new Date(poll.created_at).toLocaleDateString('ca-ES')}</span>
+                              <span>{totalVotes} participants</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button 
+                              onClick={() => setExpandedPoll(isExpanded ? null : poll.id)}
+                              className={`p-3 rounded-xl transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest ${isExpanded ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                            >
+                              <FileText size={16} /> 
+                              {isExpanded ? 'Amagar' : 'Resultats'}
+                            </button>
+                            <button 
+                              onClick={() => handleDeletePoll(poll.id)}
+                              className="p-3 text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-xl transition-colors"
+                              title="Esborrar Enquesta"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Expanded Results View */}
+                        {isExpanded && (
+                          <div className="px-8 pb-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                             <div className="p-6 bg-slate-50 rounded-3xl space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                   {/* Column 1: Summary */}
+                                   <div className="space-y-4">
+                                      <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-2">Tally Global</h5>
+                                      <div className="space-y-2">
+                                        {options.map(opt => {
+                                          const optVotes = votes.filter(v => v.option_id === opt.id);
+                                          const optQuantity = optVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
+                                          const perc = totalVotes > 0 ? Math.round((optVotes.length / totalVotes) * 100) : 0;
+                                          
+                                          return (
+                                            <div key={opt.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
+                                              <span className="text-sm font-bold text-slate-700">{opt.text}</span>
+                                              <div className="flex items-center gap-3">
+                                                {poll.type === 'order' ? (
+                                                  <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase">
+                                                    {optQuantity} unitats
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-xs font-black text-slate-400">{perc}%</span>
+                                                )}
+                                                <span className="text-[10px] font-black text-slate-900">{optVotes.length} pers.</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                   </div>
+
+                                   {/* Column 2: Participants List */}
+                                   <div className="space-y-4">
+                                      <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-200 pb-2">Llistat de Persones</h5>
+                                      <div className="max-h-48 overflow-y-auto space-y-1 pr-2">
+                                        {votes.length === 0 && <p className="text-[10px] italic text-slate-400">Encara no hi ha respostes</p>}
+                                        {votes.map(v => (
+                                          <div key={v.id} className="flex justify-between items-center text-xs py-1.5 border-b border-slate-100 last:border-0">
+                                            <span className="text-slate-600 font-medium">{v.users?.name || 'Anònim'}</span>
+                                            <span className="text-slate-400 font-bold">
+                                              {options.find(o => o.id === v.option_id)?.text} 
+                                              {poll.type === 'order' && ` (${v.quantity || 1})`}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                          </div>
+                        )}
                       </div>
-                      <button 
-                        onClick={() => handleDeletePoll(poll.id)}
-                        className="text-slate-400 hover:text-red-500 p-2 sm:p-3 bg-slate-50 hover:bg-red-50 rounded-xl transition-colors shrink-0"
-                        title="Esborrar Enquesta"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

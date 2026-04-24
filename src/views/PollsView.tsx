@@ -39,6 +39,7 @@ export default function PollsView({ user }: PollsViewProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [orderQuantity, setOrderQuantity] = useState<Record<number, number>>({});
+  const [isEditing, setIsEditing] = useState<Record<number, boolean>>({});
 
   const fetchData = async () => {
     try {
@@ -96,6 +97,7 @@ export default function PollsView({ user }: PollsViewProps) {
         }]);
       }
       // Optimistic update
+      setIsEditing({ ...isEditing, [pollId]: false });
       fetchData();
     } catch (err) {
       console.error("Error casting vote:", err);
@@ -153,8 +155,8 @@ export default function PollsView({ user }: PollsViewProps) {
             const userVote = pollVotes.find(v => v.user_id === user.uid);
             const totalVotes = pollVotes.length;
             
-            // Should reveal results if inactive OR user has voted
-            const showResults = !pollActive || userVote;
+            // Should reveal results if inactive OR user has voted (and NOT editing)
+            const showResults = (!pollActive || userVote) && !isEditing[poll.id];
 
             return (
               <div key={poll.id} className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-slate-100 overflow-hidden relative">
@@ -276,13 +278,18 @@ export default function PollsView({ user }: PollsViewProps) {
                       }
                     </span>
                     {pollActive && userVote && (
-                       <div className="flex items-center gap-2">
+                       <div className="flex items-center gap-4">
                           <span className={`text-[10px] font-bold italic ${poll.type === 'order' ? 'text-amber-600/60' : 'text-primary/60'}`}>
                             {poll.type === 'order' ? `Has demanat ${userVote.quantity || 1}` : 'Has votat'}
                           </span>
                           <button 
-                            onClick={() => handleVote(poll.id, userVote.option_id)} // Trigger "re-vote" to update quantity if needed
-                            className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary underline"
+                            onClick={() => {
+                              if (poll.type === 'order') {
+                                setOrderQuantity({ ...orderQuantity, [poll.id]: userVote.quantity || 1 });
+                              }
+                              setIsEditing({ ...isEditing, [poll.id]: true });
+                            }}
+                            className="text-[10px] font-black uppercase tracking-widest text-[#d44211] hover:underline"
                           >
                             Editar
                           </button>
