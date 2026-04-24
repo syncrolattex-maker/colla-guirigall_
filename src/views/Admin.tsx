@@ -488,8 +488,8 @@ export default function Admin({ user }: AdminProps) {
   };
 
   const handleCreatePoll = async () => {
-    if (!newPoll.title.trim() || newPoll.options.filter(o => o.trim() !== '').length < 2) {
-      alert("L'enquesta necessita un títol i almenys 2 opcions vàlides.");
+    if (!newPoll.title.trim() || newPoll.options.filter(o => o.trim() !== '').length < 1) {
+      alert("L'enquesta necessita un títol i almenys 1 opció vàlida.");
       return;
     }
     setCreatingPoll(true);
