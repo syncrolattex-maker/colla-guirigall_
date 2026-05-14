@@ -312,125 +312,197 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
           <p className="text-sm">Aquesta actuació no té cançons assignades al seu repertori.</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto">
-          {/* Mobile scroll hint */}
-          <div className="flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-50 border-b border-blue-100 sm:hidden">
-            <span className="text-[9px] text-blue-500 font-bold uppercase tracking-wider">← Desplaça't per veure totes les obres →</span>
+        <>
+          {/* ── MOBILE VIEW ── */}
+          <div className="sm:hidden flex flex-col gap-4 p-4 pb-24 overflow-y-auto flex-1 bg-slate-50/50">
+            {showOnlyMe ? (
+              <div className="flex flex-col gap-3">
+                {songs.map(song => {
+                  const me = filteredMusicians[0];
+                  const voice = me ? assignments[me.uid]?.[song.id] : null;
+                  if (!voice && !isAdmin) return null;
+                  return (
+                    <div key={song.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-slate-800 text-sm truncate">{song.title}</h4>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {isAdmin && (
+                          <button onClick={() => me && handleCellClick(me.uid, song.id)} className={`w-8 h-8 rounded-lg border flex items-center justify-center font-black text-xs transition-colors ${voice ? VOICE_STYLES[voice] : 'bg-slate-50 border-slate-200 text-slate-300'}`}>
+                            {voice || '+'}
+                          </button>
+                        )}
+                        {!isAdmin && (
+                          voice ? (
+                            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border font-black text-xs ${VOICE_STYLES[voice]}`}>{voice}</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 uppercase tracking-widest">Cap</span>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {songs.map(song => {
+                  let assignedCount = 0;
+                  filteredMusicians.forEach(m => {
+                    if (assignments[m.uid]?.[song.id]) assignedCount++;
+                  });
+                  const totalCount = filteredMusicians.length;
+
+                  return (
+                    <details key={song.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 group overflow-hidden">
+                      <summary className="p-4 font-bold text-slate-800 text-sm cursor-pointer list-none flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <span className="truncate pr-4 flex-1">{song.title}</span>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{assignedCount}/{totalCount}</span>
+                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center group-open:rotate-180 transition-transform">
+                            <ChevronDown size={14} className="text-slate-500" />
+                          </div>
+                        </div>
+                      </summary>
+                      <div className="p-4 pt-2 border-t border-slate-100 bg-slate-50/50">
+                        {['Dolçaina', 'Tabal'].map(inst => {
+                          const instMusicians = filteredMusicians.filter(m => m.instrument === inst);
+                          if(instMusicians.length === 0) return null;
+                          return (
+                            <div key={inst} className="mb-4 last:mb-0">
+                              <h5 className="text-[10px] font-black uppercase tracking-widest text-[#d44211] mb-2">{inst}</h5>
+                              <div className="flex flex-col gap-1.5">
+                                {instMusicians.map(m => {
+                                  const voice = assignments[m.uid]?.[song.id] || '';
+                                  return (
+                                    <div key={m.uid} className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-100">
+                                      <span className="text-xs font-semibold text-slate-700 truncate pr-2">{m.name}</span>
+                                      <button 
+                                        onClick={() => isAdmin && handleCellClick(m.uid, song.id)}
+                                        className={`shrink-0 w-8 h-8 rounded-lg border font-black text-[11px] flex items-center justify-center transition-colors ${voice ? VOICE_STYLES[voice] : 'border-slate-200 text-slate-300 bg-slate-50 hover:bg-slate-100'}`}
+                                      >
+                                        {voice || '+'}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* ── TABLE ── */}
-          <table className="border-collapse" style={{ tableLayout: 'fixed', minWidth: 'max-content', width: '100%' }}>
-            <thead>
-              <tr>
-                {/* Corner */}
-                <th className="sticky left-0 z-20 bg-slate-100 border border-slate-300 text-left text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap px-2 sm:px-4 py-2"
-                  style={{ width: NAME_W_MOBILE, minWidth: NAME_W_MOBILE }}
-                >
-                  <span className="hidden sm:inline">Músic / Obra</span>
-                  <span className="sm:hidden">Músic</span>
-                </th>
-
-                {songs.map(song => (
-                  <th key={song.id}
-                    className="border border-slate-200 bg-slate-100 text-center align-bottom p-0"
-                    style={{ width: COL_W_MOBILE, minWidth: COL_W_MOBILE }}
+          {/* ── DESKTOP VIEW ── */}
+          <div className="hidden sm:block flex-1 overflow-auto bg-slate-50/50">
+            <table className="border-collapse" style={{ tableLayout: 'fixed', minWidth: 'max-content', width: '100%' }}>
+              <thead>
+                <tr>
+                  {/* Corner */}
+                  <th className="sticky left-0 z-20 bg-slate-100 border border-slate-300 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap px-4 py-2"
+                    style={{ width: NAME_W_MOBILE, minWidth: NAME_W_MOBILE }}
                   >
-                    <div
-                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 90 }}
-                      className="hidden sm:flex text-[11px] font-semibold text-slate-700 leading-tight px-1.5 pb-1.5 items-center"
-                      title={song.title}
-                    >
-                      {song.title}
-                    </div>
-                    <div
-                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 70 }}
-                      className="sm:hidden flex text-[9px] font-semibold text-slate-600 leading-tight px-0.5 pb-1 items-center"
-                      title={song.title}
-                    >
-                      {song.title.length > 15 ? song.title.slice(0, 15) + '…' : song.title}
-                    </div>
+                    Músic / Obra
                   </th>
-                ))}
-              </tr>
-            </thead>
 
-            <tbody>
-              {Object.entries(musiciansByInstrument).map(([instrument, instMusicians]) => (
-                <React.Fragment key={instrument}>
-                  {/* ── Group header ── */}
-                  <tr>
-                    <td colSpan={songs.length + 1}
-                      className="sticky left-0 border border-slate-300 px-2 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] text-[#d44211] bg-orange-50">
-                      {instrument}
-                    </td>
-                  </tr>
-
-                  {/* ── Musician rows ── */}
-                  {instMusicians.map(musician => (
-                    <tr key={musician.uid} className="group hover:bg-blue-50/20 transition-colors">
-                      <td
-                        className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30 border border-slate-200 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-[12px] font-semibold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis transition-colors"
-                        style={{ maxWidth: NAME_W_MOBILE }}
-                        title={musician.name}
+                  {songs.map(song => (
+                    <th key={song.id}
+                      className="border border-slate-200 bg-slate-100 text-center align-bottom p-0"
+                      style={{ width: COL_W_MOBILE, minWidth: COL_W_MOBILE }}
+                    >
+                      <div
+                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 90 }}
+                        className="flex text-[11px] font-semibold text-slate-700 leading-tight px-1.5 pb-1.5 items-center"
+                        title={song.title}
                       >
-                        {musician.name}
-                      </td>
+                        {song.title}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
+              <tbody>
+                {Object.entries(musiciansByInstrument).map(([instrument, instMusicians]) => (
+                  <React.Fragment key={instrument}>
+                    {/* ── Group header ── */}
+                    <tr>
+                      <td colSpan={songs.length + 1}
+                        className="sticky left-0 border border-slate-300 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-[#d44211] bg-orange-50">
+                        {instrument}
+                      </td>
+                    </tr>
+
+                    {/* ── Musician rows ── */}
+                    {instMusicians.map(musician => (
+                      <tr key={musician.uid} className="group hover:bg-blue-50/20 transition-colors">
+                        <td
+                          className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30 border border-slate-200 px-4 py-2 text-[12px] font-semibold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis transition-colors"
+                          style={{ maxWidth: NAME_W_MOBILE }}
+                          title={musician.name}
+                        >
+                          {musician.name}
+                        </td>
+
+                        {songs.map(song => {
+                          const voice = assignments[musician.uid]?.[song.id] || '';
+                          const styleClass = VOICE_STYLES[voice] || '';
+                          return (
+                            <td key={song.id}
+                              onClick={() => handleCellClick(musician.uid, song.id)}
+                              title={isAdmin ? `${musician.name} — ${song.title}` : ''}
+                              className={`border border-slate-200 text-center transition-all select-none ${isAdmin ? 'cursor-pointer' : ''}`}
+                              style={{ height: 30, width: COL_W_MOBILE }}
+                            >
+                              {voice ? (
+                                <span className={`inline-flex items-center justify-center rounded border font-black ${styleClass} text-[11px] w-7 h-7`}>
+                                  {voice}
+                                </span>
+                              ) : (
+                                <span className="text-slate-200 group-hover:text-slate-300 text-xs transition-colors">·</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+
+                    {/* ── Totals row ── */}
+                    <tr className="bg-slate-50">
+                      <td className="sticky left-0 bg-slate-50 border border-slate-200 px-4 py-1 text-[9px] font-black uppercase text-slate-400 tracking-wider italic">
+                        Resum
+                      </td>
                       {songs.map(song => {
-                        const voice = assignments[musician.uid]?.[song.id] || '';
-                        const styleClass = VOICE_STYLES[voice] || '';
+                        const voices = instrument.toLowerCase().includes('tabal') ? TABAL_VOICES : DOLCAINA_VOICES;
+                        const counts = voices.map(v => {
+                          const n = voiceCount(instMusicians, song.id, v);
+                          return n > 0 ? { v, n } : null;
+                        }).filter(Boolean) as { v: string; n: number }[];
                         return (
                           <td key={song.id}
-                            onClick={() => handleCellClick(musician.uid, song.id)}
-                            title={isAdmin ? `${musician.name} — ${song.title}` : ''}
-                            className={`border border-slate-200 text-center transition-all select-none ${isAdmin ? 'cursor-pointer' : ''}`}
-                            style={{ height: 30, width: COL_W_MOBILE }}
-                          >
-                            {voice ? (
-                              <span className={`inline-flex items-center justify-center rounded border font-black ${styleClass}
-                                text-[9px] w-5 h-5
-                                sm:text-[11px] sm:w-7 sm:h-7`}>
-                                {voice}
-                              </span>
-                            ) : (
-                              <span className="text-slate-200 group-hover:text-slate-300 text-xs transition-colors">·</span>
-                            )}
+                            className="border border-slate-200 text-center py-0.5 px-0"
+                            style={{ width: COL_W_MOBILE }}>
+                            {counts.map(({ v, n }) => (
+                              <div key={v}
+                                className={`text-[8px] font-black leading-tight mx-auto w-fit px-0.5 rounded ${VOICE_STYLES[v]}`}>
+                                {v}:{n}
+                              </div>
+                            ))}
                           </td>
                         );
                       })}
                     </tr>
-                  ))}
-
-                  {/* ── Totals row ── */}
-                  <tr className="bg-slate-50">
-                    <td className="sticky left-0 bg-slate-50 border border-slate-200 px-2 sm:px-4 py-1 text-[8px] sm:text-[9px] font-black uppercase text-slate-400 tracking-wider italic">
-                      Resum
-                    </td>
-                    {songs.map(song => {
-                      const voices = instrument.toLowerCase().includes('tabal') ? TABAL_VOICES : DOLCAINA_VOICES;
-                      const counts = voices.map(v => {
-                        const n = voiceCount(instMusicians, song.id, v);
-                        return n > 0 ? { v, n } : null;
-                      }).filter(Boolean) as { v: string; n: number }[];
-                      return (
-                        <td key={song.id}
-                          className="border border-slate-200 text-center py-0.5 px-0"
-                          style={{ width: COL_W_MOBILE }}>
-                          {counts.map(({ v, n }) => (
-                            <div key={v}
-                              className={`text-[7px] sm:text-[8px] font-black leading-tight mx-auto w-fit px-0.5 rounded ${VOICE_STYLES[v]}`}>
-                              {v}:{n}
-                            </div>
-                          ))}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* ══════════════════════ LEGEND ══════════════════════════════════════ */}
