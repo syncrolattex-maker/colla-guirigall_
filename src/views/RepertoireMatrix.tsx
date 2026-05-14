@@ -35,8 +35,9 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
   const [showEventMenu, setShowEventMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const isAdmin = user.role === 'admin';
+  const [showOnlyMe, setShowOnlyMe] = useState(!isAdmin);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -146,7 +147,11 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
     }
   };
 
-  const musiciansByInstrument = musicians.reduce((acc, m) => {
+  const filteredMusicians = showOnlyMe 
+    ? musicians.filter(m => m.uid === user.uid)
+    : musicians;
+
+  const musiciansByInstrument = filteredMusicians.reduce((acc, m) => {
     const k = m.instrument || 'Altres';
     if (!acc[k]) acc[k] = [];
     acc[k].push(m);
@@ -194,30 +199,39 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
         </div>
 
         {/* MOBILE: event selector row */}
-        <div className="px-3 pb-2 sm:hidden" ref={menuRef}>
-          <button onClick={() => setShowEventMenu(v => !v)}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors">
-            <span className="truncate">{currentEventLabel ? `🎺 ${currentEventLabel}` : '🌍 Totes les obres (Global)'}</span>
-            <ChevronDown size={14} className={`shrink-0 transition-transform ${showEventMenu ? 'rotate-180' : ''}`} />
-          </button>
-          {showEventMenu && (
-            <div className="absolute left-0 right-0 mx-3 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
-              <button onClick={() => { setCurrentEventId(null); setShowEventMenu(false); }}
-                className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition-colors ${!currentEventId ? 'text-[#d44211] bg-[#d44211]/5' : 'text-slate-700'}`}>
-                🌍 Totes les obres (Global)
-              </button>
-              <div className="border-t border-slate-100 px-4 py-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actuacions</p>
-              </div>
-              {allEvents.map(ev => (
-                <button key={ev.id} onClick={() => { setCurrentEventId(ev.id); setShowEventMenu(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition-colors truncate ${currentEventId === ev.id ? 'text-[#d44211] bg-[#d44211]/5' : 'text-slate-700'}`}>
-                  🎺 {ev.title}
+        <div className="px-3 pb-2 sm:hidden flex gap-2" ref={menuRef}>
+          <div className="relative flex-1">
+            <button onClick={() => setShowEventMenu(v => !v)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors">
+              <span className="truncate">{currentEventLabel ? `🎺 ${currentEventLabel}` : '🌍 Totes les obres (Global)'}</span>
+              <ChevronDown size={14} className={`shrink-0 transition-transform ${showEventMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showEventMenu && (
+              <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
+                <button onClick={() => { setCurrentEventId(null); setShowEventMenu(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition-colors ${!currentEventId ? 'text-[#d44211] bg-[#d44211]/5' : 'text-slate-700'}`}>
+                  🌍 Totes les obres (Global)
                 </button>
-              ))}
-            </div>
-          )}
+                <div className="border-t border-slate-100 px-4 py-1">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actuacions</p>
+                </div>
+                {allEvents.map(ev => (
+                  <button key={ev.id} onClick={() => { setCurrentEventId(ev.id); setShowEventMenu(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition-colors truncate ${currentEventId === ev.id ? 'text-[#d44211] bg-[#d44211]/5' : 'text-slate-700'}`}>
+                    🎺 {ev.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => setShowOnlyMe(!showOnlyMe)}
+            className={`shrink-0 px-3 py-2 border rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${showOnlyMe ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+          >
+            {showOnlyMe ? 'Només Jo' : 'Tots'}
+          </button>
         </div>
+
 
         {/* DESKTOP: single row */}
         <div className="hidden sm:flex items-center gap-4 px-6 py-3">
@@ -260,7 +274,13 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
             )}
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <button 
+              onClick={() => setShowOnlyMe(!showOnlyMe)}
+              className={`px-4 py-2.5 border-2 rounded-xl text-sm font-bold transition-colors ${showOnlyMe ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-white text-slate-700 border-slate-200 hover:border-[#d44211]/40'}`}
+            >
+              {showOnlyMe ? 'Mostrant: Només Jo' : 'Mostrant: Tots'}
+            </button>
             {isAdmin && (
               <button onClick={saveAssignments} disabled={saving}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-md ${saved ? 'bg-green-500 text-white shadow-green-200' : 'bg-[#d44211] text-white hover:bg-[#b83a0f] shadow-[#d44211]/20'}`}>
@@ -315,13 +335,12 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
                     >
                       {song.title}
                     </div>
-                    {/* Mobile: abbreviated */}
                     <div
                       style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 70 }}
                       className="sm:hidden flex text-[9px] font-semibold text-slate-600 leading-tight px-0.5 pb-1 items-center"
                       title={song.title}
                     >
-                      {song.title.length > 12 ? song.title.slice(0, 12) + '…' : song.title}
+                      {song.title.length > 15 ? song.title.slice(0, 15) + '…' : song.title}
                     </div>
                   </th>
                 ))}
