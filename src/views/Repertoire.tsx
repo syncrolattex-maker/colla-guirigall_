@@ -5,6 +5,7 @@ import { UserData } from '../App';
 
 interface RepertoireProps {
   user: UserData;
+  onNavigate?: (view: any, eventId?: number | null) => void;
 }
 
 interface SongPdf {
@@ -24,7 +25,7 @@ interface Song {
   created_at: string;
 }
 
-export default function Repertoire({ user }: RepertoireProps) {
+export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -33,6 +34,7 @@ export default function Repertoire({ user }: RepertoireProps) {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [existingPdfs, setExistingPdfs] = useState<SongPdf[]>([]);
   const [removeMp3, setRemoveMp3] = useState(false);
+  const [userAssignments, setUserAssignments] = useState<Record<number, string>>({}); // songId -> voice
   
   const [newSong, setNewSong] = useState({
     title: '',
@@ -61,6 +63,21 @@ export default function Repertoire({ user }: RepertoireProps) {
     setLoading(false);
   };
 
+  const fetchAssignments = async () => {
+    const { data, error } = await supabase
+      .from('repertoire_assignments')
+      .select('song_id, voice')
+      .eq('user_id', user.uid);
+    
+    if (error) {
+      console.error("Error fetching assignments:", error);
+    } else {
+      const map: Record<number, string> = {};
+      data?.forEach(a => { map[a.song_id] = a.voice; });
+      setUserAssignments(map);
+    }
+  };
+
   useEffect(() => {
     fetchSongs();
 
@@ -72,8 +89,17 @@ export default function Repertoire({ user }: RepertoireProps) {
       })
       .subscribe();
 
+    fetchAssignments();
+    const assignChannel = supabase
+      .channel('public:repertoire_assignments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_assignments', filter: `user_id=eq.${user.uid}` }, () => {
+        fetchAssignments();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(assignChannel);
     };
   }, []);
 
@@ -244,12 +270,20 @@ export default function Repertoire({ user }: RepertoireProps) {
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-2">El nostre repertori</h1>
           <p className="text-slate-600 text-lg max-w-2xl">Arxiu digital de partitures, àudios i vídeos per als membres de la Colla.</p>
         </div>
-        <button 
-          onClick={() => setIsAdding(true)}
-          className="px-6 py-3 bg-[#d44211] text-white font-bold rounded-xl hover:bg-[#d44211]/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#d44211]/20 whitespace-nowrap"
-        >
-          <Plus size={20} /> Nova Cançó
-        </button>
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+          <button
+            onClick={() => onNavigate && onNavigate('matrix')}
+            className="px-6 py-3 bg-white text-[#d44211] font-bold rounded-xl border-2 border-[#d44211] hover:bg-[#d44211]/5 transition-all flex items-center justify-center gap-2"
+          >
+            <FileText size={20} /> Matriu de Veus
+          </button>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="px-6 py-3 bg-[#d44211] text-white font-bold rounded-xl hover:bg-[#d44211]/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#d44211]/20 whitespace-nowrap"
+          >
+            <Plus size={20} /> Nova Cançó
+          </button>
+        </div>
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row gap-4 items-center">
@@ -272,7 +306,7 @@ export default function Repertoire({ user }: RepertoireProps) {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d44211]"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#d44211]/10 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-[#d44211]/10 overflow-hidden shadow-sm hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
@@ -293,7 +327,14 @@ export default function Repertoire({ user }: RepertoireProps) {
                   filteredSongs.map((song) => (
                     <tr key={song.id} className="hover:bg-[#d44211]/5 transition-colors">
                       <td className="px-6 py-6">
-                        <div className="font-bold text-slate-900 text-base">{song.title}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="font-bold text-slate-900 text-base">{song.title}</div>
+                          {userAssignments[song.id] && (
+                            <span className="px-2 py-0.5 bg-[#d44211]/10 text-[#d44211] text-[9px] font-black rounded-md border border-[#d44211]/20 uppercase">
+                              Veu {userAssignments[song.id]}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
                       </td>
                       <td className="px-6 py-6 text-slate-600 font-medium">
@@ -355,6 +396,84 @@ export default function Repertoire({ user }: RepertoireProps) {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden flex flex-col gap-4">
+          {filteredSongs.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 bg-white rounded-xl border border-[#d44211]/10">
+              No s'han trobat cançons.
+            </div>
+          ) : (
+            filteredSongs.map((song) => (
+              <div key={song.id} className="bg-white rounded-2xl p-5 border border-[#d44211]/10 shadow-sm flex flex-col gap-4 relative">
+                {userAssignments[song.id] && (
+                  <span className="absolute top-5 right-5 px-2 py-1 bg-[#d44211]/10 text-[#d44211] text-[10px] font-black rounded-lg border border-[#d44211]/20 uppercase">
+                    Veu {userAssignments[song.id]}
+                  </span>
+                )}
+                <div>
+                  <h3 className="font-black text-slate-900 text-lg leading-tight pr-16">{song.title}</h3>
+                  <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
+                </div>
+                
+                <div className="text-sm text-slate-600 font-medium">
+                  {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
+                </div>
+                
+                <div className="pt-3 border-t border-[#d44211]/5 flex flex-col gap-3">
+                  {song.pdfs && song.pdfs.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {song.pdfs.map((pdf, idx) => (
+                        <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold active:scale-95 transition-transform border border-red-100">
+                          <FileText size={14} /> {pdf.instrument}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs font-bold text-slate-400 italic">Sense partitures</div>
+                  )}
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {song.mp3_url && (
+                      <button 
+                        onClick={() => toggleAudio(song.mp3_url, song.title)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-blue-50 text-blue-700 border-blue-100'}`}
+                      >
+                        {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
+                        {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Àudio'}
+                      </button>
+                    )}
+                    {song.youtube_url && (
+                      <button 
+                        onClick={() => toggleVideo(song.youtube_url, song.title)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white border-red-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+                      >
+                        <PlayCircle size={14} /> YouTube
+                      </button>
+                    )}
+                  </div>
+                  
+                  {user.role === 'admin' && (
+                    <div className="flex justify-end gap-3 mt-1 pt-3 border-t border-slate-50">
+                      <button 
+                        onClick={() => handleOpenEdit(song)}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteSong(song.id)}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 

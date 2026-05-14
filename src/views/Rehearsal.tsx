@@ -5,6 +5,7 @@ import { UserData } from '../App';
 
 interface RehearsalProps {
   user: UserData;
+  onNavigate?: (view: any, eventId?: number | null) => void;
 }
 
 interface AppEvent {
@@ -45,7 +46,7 @@ interface DBAttendance {
   status: string;
 }
 
-export default function Rehearsal({ user }: RehearsalProps) {
+export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
   const [rehearsals, setRehearsals] = useState<AppEvent[]>([]);
   const [attendances, setAttendances] = useState<Record<number, string | null>>({});
   const [allAttendances, setAllAttendances] = useState<DBAttendance[]>([]);
@@ -357,23 +358,32 @@ export default function Rehearsal({ user }: RehearsalProps) {
                   <div className="grid lg:grid-cols-5 gap-0">
                     {/* Repertoire Column */}
                     <div className="lg:col-span-3 p-8 md:p-10 border-b lg:border-b-0 lg:border-r border-slate-100/50 space-y-8">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-6">
                         <div className="space-y-1">
                           <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                             <FileText size={16} /> Repertori i Partitures
                           </h3>
                         </div>
-                        {user.role === 'admin' && (
-                          <button 
-                            onClick={() => {
-                              setSelectedSongIds(rehearsal.repertoireids || []);
-                              setIsEditingRepertoire(rehearsal.id as any);
-                            }}
-                            className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary-dark transition-colors flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-xl border border-primary/10"
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onNavigate && onNavigate('matrix', rehearsal.id)}
+                            className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-2 bg-slate-50 hover:bg-primary/5 px-3 py-2 rounded-xl border border-slate-200 hover:border-primary/20"
+                            title="Veure Matriu de Veus de l'Assaig"
                           >
-                            <Plus size={14} strokeWidth={3} /> Gestionar
+                             <Users size={14} strokeWidth={3} /> <span className="hidden sm:inline">Matriu de Veus</span>
                           </button>
-                        )}
+                          {user.role === 'admin' && (
+                            <button 
+                              onClick={() => {
+                                setSelectedSongIds(rehearsal.repertoireids || []);
+                                setIsEditingRepertoire(rehearsal.id as any);
+                              }}
+                              className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary-dark transition-colors flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-xl border border-primary/10"
+                            >
+                              <Plus size={14} strokeWidth={3} /> <span className="hidden sm:inline">Gestionar</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid gap-4">

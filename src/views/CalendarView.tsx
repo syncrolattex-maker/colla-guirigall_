@@ -44,6 +44,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const [allAttendances, setAllAttendances] = useState<Record<number, Record<string, Attendance>>>({});
   const [users, setUsers] = useState<UserData[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
+  const [userAssignments, setUserAssignments] = useState<Record<number, Record<number, string>>>({}); // eventId -> songId -> voice
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null);
@@ -96,20 +97,40 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     else setSongs(data || []);
   };
 
+  const fetchAssignments = async () => {
+    const { data, error } = await supabase
+      .from('song_assignments')
+      .select('event_id, song_id, voice')
+      .eq('user_id', user.uid);
+    
+    if (error) console.error("Error fetching assignments:", error);
+    else {
+      const assignMap: Record<number, Record<number, string>> = {};
+      data?.forEach(a => {
+        if (!assignMap[a.event_id]) assignMap[a.event_id] = {};
+        assignMap[a.event_id][a.song_id] = a.voice;
+      });
+      setUserAssignments(assignMap);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
     fetchAttendances();
     fetchUsers();
     fetchSongs();
+    fetchAssignments();
 
     const eventsChannel = supabase.channel('calendar-view-events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const attendancesChannel = supabase.channel('calendar-view-attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
     const usersChannel = supabase.channel('calendar-view-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers).subscribe();
+    const assignmentsChannel = supabase.channel('calendar-view-assignments').on('postgres_changes', { event: '*', schema: 'public', table: 'song_assignments' }, fetchAssignments).subscribe();
 
     return () => {
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(attendancesChannel);
       supabase.removeChannel(usersChannel);
+      supabase.removeChannel(assignmentsChannel);
     };
   }, []);
 
@@ -617,15 +638,23 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                   </h3>
                   <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {viewingEvent.repertoireids.map(id => {
-                        const song = songs.find(s => s.id === id);
-                        return (
-                          <li key={id} className="flex items-center gap-2 text-sm text-slate-700 font-medium">
-                            <FileText size={14} className="text-[#d44211]" />
-                            {song?.title || 'Cançó desconeguda'}
-                          </li>
-                        );
-                      })}
+                        {viewingEvent.repertoireids.map(id => {
+                          const song = songs.find(s => s.id === id);
+                          const voice = userAssignments[viewingEvent.id]?.[id];
+                          return (
+                            <li key={id} className="flex items-center justify-between p-2 hover:bg-white rounded-lg transition-colors">
+                              <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+                                <FileText size={14} className="text-[#d44211]" />
+                                {song?.title || 'Cançó desconeguda'}
+                              </div>
+                              {voice && (
+                                <span className="px-3 py-1 bg-white border border-[#d44211]/20 text-[#d44211] text-[10px] font-black rounded-lg shadow-sm">
+                                  Veu: {voice}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
                     </ul>
                     <div className="mt-4 pt-4 border-t border-slate-200">
                       <p className="text-xs text-slate-500 mb-2">Pots consultar les partitures i audios a la secció de "Obres i Assajos".</p>

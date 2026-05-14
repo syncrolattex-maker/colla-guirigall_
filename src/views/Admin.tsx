@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
 interface AdminProps {
   user: UserData;
+  setView: (view: any) => void;
+  setSelectedEventId: (id: number) => void;
 }
 
 interface AppEvent {
@@ -24,7 +26,7 @@ interface Member {
   avatar: string;
 }
 
-type AdminTab = 'convocatories' | 'musics' | 'alertes' | 'enquestes';
+type AdminTab = 'convocatories' | 'musics' | 'veus' | 'alertes' | 'enquestes';
 
 // ─── Notify Modal ────────────────────────────────────────────────────────────
 function NotifyModal({ member, onClose }: { member: Member; onClose: () => void }) {
@@ -354,10 +356,16 @@ const MemberCard: React.FC<{
 }
 
 // ─── Main Admin Component ─────────────────────────────────────────────────────
-export default function Admin({ user }: AdminProps) {
+export default function Admin({ user, setView, setSelectedEventId }: AdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('convocatories');
   const [events, setEvents] = useState<AppEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [selectedEventId, setLocalSelectedEventId] = useState<number | null>(null);
+  
+  // Helper to update both local and parent state
+  const handleEventSelection = (id: number) => {
+    setLocalSelectedEventId(id);
+    setSelectedEventId(id);
+  };
   const [members, setMembers] = useState<Member[]>([]);
   const [attendances, setAttendances] = useState<Record<string, {status: string, convocat: boolean}>>({});
   const [loading, setLoading] = useState(true);
@@ -512,6 +520,10 @@ export default function Admin({ user }: AdminProps) {
         poll_id: pollData.id,
         text: text.trim()
       }));
+
+      if (newPoll.type === 'meal') {
+        validOptions.push({ poll_id: pollData.id, text: 'No vinc' });
+      }
       
       const { error: optionsError } = await supabase.from('poll_options').insert(validOptions);
       if (optionsError) throw optionsError;
@@ -706,6 +718,7 @@ export default function Admin({ user }: AdminProps) {
   const navItems = [
     { id: 'convocatories' as AdminTab, label: 'Convocatòries', icon: Calendar },
     { id: 'musics' as AdminTab, label: 'Músics', icon: Users },
+    { id: 'veus' as AdminTab, label: 'Matriu de Veus', icon: Music },
     { id: 'alertes' as AdminTab, label: 'Alertes', icon: Bell },
     { id: 'enquestes' as AdminTab, label: 'Enquestes', icon: PieChart },
   ];
@@ -729,7 +742,10 @@ export default function Admin({ user }: AdminProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (item.id === 'veus') setSelectedEventId(0); // Reset for global matrix
+                }}
                 className={`flex items-center gap-4 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] group transition-all ${
                   isActive
                     ? 'bg-primary text-white shadow-xl shadow-primary/20'
@@ -852,27 +868,34 @@ export default function Admin({ user }: AdminProps) {
             <div className="glass rounded-[3rem] border-white/40 p-10 shadow-2xl space-y-8 max-w-2xl">
               <div className="space-y-4">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tipus de Publicació</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button 
                     onClick={() => setNewPoll({...newPoll, type: 'standard'})}
                     className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'standard' ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
                   >
                     <PieChart size={24} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Enquesta de Votació</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Votació</span>
                   </button>
                   <button 
                     onClick={() => setNewPoll({...newPoll, type: 'order'})}
                     className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'order' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
                   >
                     <ShoppingBag size={24} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Pre-comanda / Llista</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Pre-comanda</span>
+                  </button>
+                  <button 
+                    onClick={() => setNewPoll({...newPoll, type: 'meal'})}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${newPoll.type === 'meal' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'}`}
+                  >
+                    <Utensils size={24} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Dinar / Esmorçar</span>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-400">
-                  {newPoll.type === 'order' ? 'Títol de la Comanda *' : "Títol de l'Enquesta *"}
+                  {newPoll.type === 'order' ? 'Títol de la Comanda *' : newPoll.type === 'meal' ? 'Títol del Menjar / Esmorçar *' : "Títol de l'Enquesta *"}
                 </label>
                 <input 
                   type="text"
@@ -896,7 +919,7 @@ export default function Admin({ user }: AdminProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-400">
-                    {newPoll.type === 'order' ? 'Llista de Productes *' : 'Opcions de Resposta *'}
+                    {newPoll.type === 'order' ? 'Llista de Productes *' : newPoll.type === 'meal' ? 'Opcions de Menjar (l\'opció "No vinc" s\'afegeix sola) *' : 'Opcions de Resposta *'}
                   </label>
                   <button 
                     onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, '']})}
@@ -951,7 +974,7 @@ export default function Admin({ user }: AdminProps) {
                   className="w-full py-5 bg-primary text-white font-black uppercase tracking-widest text-xs rounded-[2rem] hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
                 >
                   {creatingPoll ? <div className="animate-spin w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> : <Save size={18} />}
-                  Publicar {newPoll.type === 'order' ? 'Comanda' : 'Enquesta'}
+                  Publicar {newPoll.type === 'order' ? 'Comanda' : newPoll.type === 'meal' ? 'Menjar' : 'Enquesta'}
                 </button>
               </div>
             </div>
@@ -976,6 +999,10 @@ export default function Admin({ user }: AdminProps) {
                               {poll.type === 'order' ? (
                                 <span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
                                   <ShoppingBag size={10} /> Pre-comanda
+                                </span>
+                              ) : poll.type === 'meal' ? (
+                                <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                  <Utensils size={10} /> Menjar
                                 </span>
                               ) : (
                                 <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
@@ -1025,12 +1052,12 @@ export default function Admin({ user }: AdminProps) {
                                     <div key={opt.id} className="space-y-4">
                                       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                                         <div className="flex items-center gap-3">
-                                          <div className={`w-2 h-2 rounded-full ${poll.type === 'order' ? 'bg-amber-500' : 'bg-primary'}`}></div>
+                                          <div className={`w-2 h-2 rounded-full ${poll.type === 'order' ? 'bg-amber-500' : poll.type === 'meal' ? 'bg-emerald-500' : 'bg-primary'}`}></div>
                                           <h5 className="text-sm font-black text-slate-900 uppercase tracking-wide">{opt.text}</h5>
                                         </div>
                                         <div className="flex items-center gap-4">
                                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{optVotes.length} persones</span>
-                                          {poll.type === 'order' && (
+                                          {(poll.type === 'order' || poll.type === 'meal') && (
                                             <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black">
                                               TOTAL: {optQuantity} unitats
                                             </span>
@@ -1045,7 +1072,7 @@ export default function Admin({ user }: AdminProps) {
                                               <p className="text-sm font-bold text-slate-900 truncate">{v.users?.name || 'Anònim'}</p>
                                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{v.users?.instrument || 'Sense instrument'}</p>
                                             </div>
-                                            {poll.type === 'order' && (
+                                            {(poll.type === 'order' || poll.type === 'meal') && (
                                               <div className="bg-slate-50 px-3 py-1 rounded-xl border border-slate-100">
                                                 <span className="text-xs font-black text-primary">x{v.quantity || 1}</span>
                                               </div>
@@ -1101,7 +1128,7 @@ export default function Admin({ user }: AdminProps) {
                 <div className="relative group">
                   <select
                     value={selectedEventId || ''}
-                    onChange={(e) => setSelectedEventId(Number(e.target.value))}
+                    onChange={(e) => handleEventSelection(Number(e.target.value))}
                     className="w-full bg-white border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-black text-slate-700 appearance-none focus:border-primary outline-none transition-all shadow-sm group-hover:shadow-md"
                   >
                     {events.length === 0 && <option value="">Cap esdeveniment proper</option>}
@@ -1149,9 +1176,11 @@ export default function Admin({ user }: AdminProps) {
                     {confirmedMusiciansCount} confirmats, {pendingMusiciansCount} pendents, {noStayMusiciansCount} no poden
                   </p>
                 </div>
-                <button onClick={handlePublish} className="w-full xl:w-auto px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-900/20">
-                  <CheckCircle size={18} strokeWidth={3} /> Confirmar i Notificar
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                  <button onClick={handlePublish} className="flex-1 px-8 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-900/20">
+                    <CheckCircle size={18} strokeWidth={3} /> Confirmar i Notificar
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
@@ -1237,6 +1266,14 @@ export default function Admin({ user }: AdminProps) {
             </div>
           </>
         )}
+
+        {/* ── MATRIU DE VEUS TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'veus' && (() => {
+          // Navigate directly when tab is active — no intermediate screen
+          setSelectedEventId(0);
+          setView('matrix');
+          return null;
+        })()}
 
         {/* ── MÚSICS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === 'musics' && (

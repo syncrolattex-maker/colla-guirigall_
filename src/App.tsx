@@ -10,8 +10,9 @@ import Admin from './views/Admin';
 import BottomNav from './components/BottomNav';
 import NotificationBell from './components/NotificationBell';
 import PollsView from './views/PollsView';
+import RepertoireMatrix from './views/RepertoireMatrix';
 
-export type View = 'dashboard' | 'repertoire' | 'calendar' | 'rehearsal' | 'polls' | 'admin';
+export type View = 'dashboard' | 'repertoire' | 'calendar' | 'rehearsal' | 'polls' | 'admin' | 'matrix';
 
 export interface UserData {
   uid: string;
@@ -30,6 +31,7 @@ export interface GlobalAlert {
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [previousView, setPreviousView] = useState<View>('dashboard');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -268,22 +270,24 @@ export default function App() {
     }
   };
 
-  const handleNavigate = (view: View, eventId?: number) => {
+  const handleNavigate = (view: View, eventId?: number | null) => {
+    setPreviousView(currentView);
     setCurrentView(view);
-    if (eventId) {
+    if (eventId !== undefined) {
       setSelectedEventId(eventId);
     }
   };
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard setView={setCurrentView} user={user} />;
-      case 'repertoire': return <Repertoire user={user} />;
+      case 'dashboard': return <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
+      case 'repertoire': return <Repertoire user={user} onNavigate={handleNavigate} />;
       case 'calendar': return <CalendarView user={user} selectedEventId={selectedEventId} setSelectedEventId={setSelectedEventId} />;
-      case 'rehearsal': return <Rehearsal user={user} />;
+      case 'rehearsal': return <Rehearsal user={user} onNavigate={handleNavigate} />;
       case 'polls': return <PollsView user={user} />;
-      case 'admin': return user.role === 'admin' ? <Admin user={user} /> : <Dashboard setView={setCurrentView} user={user} />;
-      default: return <Dashboard setView={setCurrentView} user={user} />;
+      case 'admin': return user.role === 'admin' ? <Admin user={user} setView={(v) => handleNavigate(v)} setSelectedEventId={setSelectedEventId} /> : <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
+      case 'matrix': return <RepertoireMatrix user={user} eventId={selectedEventId} onBack={() => { handleNavigate(previousView); setSelectedEventId(null); }} />;
+      default: return <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
     }
   };
 
@@ -291,7 +295,7 @@ export default function App() {
     <div className="min-h-screen bg-[#f8f6f6] text-slate-900 font-sans flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white/90 backdrop-blur-md border-b border-[#d44211]/10">
-        <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+        <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => handleNavigate('dashboard')}>
           <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#d44211] rounded-lg flex items-center justify-center text-white shadow-lg shadow-[#d44211]/20">
             <Music size={18} sm:size={20} />
           </div>
@@ -300,13 +304,13 @@ export default function App() {
         
         <div className="hidden md:flex items-center gap-8">
           <nav className="flex items-center gap-6">
-            <button onClick={() => setCurrentView('dashboard')} className={`text-sm font-bold tracking-tight ${currentView === 'dashboard' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
-            <button onClick={() => setCurrentView('repertoire')} className={`text-sm font-bold tracking-tight ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
-            <button onClick={() => setCurrentView('calendar')} className={`text-sm font-bold tracking-tight ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
-            <button onClick={() => setCurrentView('rehearsal')} className={`text-sm font-bold tracking-tight ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
-            <button onClick={() => setCurrentView('polls')} className={`text-sm font-bold tracking-tight ${currentView === 'polls' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Enquestes</button>
+            <button onClick={() => handleNavigate('dashboard')} className={`text-sm font-bold tracking-tight ${currentView === 'dashboard' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
+            <button onClick={() => handleNavigate('repertoire')} className={`text-sm font-bold tracking-tight ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
+            <button onClick={() => handleNavigate('calendar')} className={`text-sm font-bold tracking-tight ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
+            <button onClick={() => handleNavigate('rehearsal')} className={`text-sm font-bold tracking-tight ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
+            <button onClick={() => handleNavigate('polls')} className={`text-sm font-bold tracking-tight ${currentView === 'polls' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Enquestes</button>
             {user.role === 'admin' && (
-              <button onClick={() => setCurrentView('admin')} className={`text-sm font-bold tracking-tight ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
+              <button onClick={() => handleNavigate('admin')} className={`text-sm font-bold tracking-tight ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
             )}
           </nav>
         </div>
@@ -433,7 +437,7 @@ export default function App() {
         </div>
       )}
 
-      <BottomNav currentView={currentView} setCurrentView={setCurrentView} userRole={user.role} />
+      <BottomNav currentView={currentView} setCurrentView={(v) => handleNavigate(v)} userRole={user.role} />
     </div>
   );
 }

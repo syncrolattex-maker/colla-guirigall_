@@ -2,13 +2,13 @@ export const getTypeColors = (type: string) => {
   const t = type.toLowerCase();
   
   // Specific Rehearsals
-  if (t.includes('assaig cambra')) return { text: '#6366f1', bg: '#6366f115', border: '#6366f130', dark: '#4f46e5' };
-  if (t.includes('assaig colleta')) return { text: '#0ea5e9', bg: '#0ea5e915', border: '#0ea5e930', dark: '#0284c7' };
-  if (t.includes('assaig general')) return { text: '#06b6d4', bg: '#06b6d415', border: '#06b6d430', dark: '#0891b2' };
-  if (t.includes('assaig extra')) return { text: '#8b5cf6', bg: '#8b5cf615', border: '#8b5cf630', dark: '#7c3aed' };
+  if (t.includes('assaig cambra')) return { text: '#6366f1', bg: '#6366f115', border: '#6366f130', dark: '#4f46e5' }; // Indigo
+  if (t.includes('assaig colleta')) return { text: '#14b8a6', bg: '#14b8a615', border: '#14b8a630', dark: '#0d9488' }; // Teal
+  if (t.includes('assaig general')) return { text: '#ef4444', bg: '#ef444415', border: '#ef444430', dark: '#dc2626' }; // Red
+  if (t.includes('assaig extra')) return { text: '#06b6d4', bg: '#06b6d415', border: '#06b6d430', dark: '#0891b2' }; // Cyan
   
   // Generic Rehearsal fallback
-  if (t.includes('assaig')) return { text: '#3b82f6', bg: '#3b82f615', border: '#3b82f630', dark: '#2563eb' };
+  if (t.includes('assaig')) return { text: '#3b82f6', bg: '#3b82f615', border: '#3b82f630', dark: '#2563eb' }; // Blue
   
   // Performance types
   if (t.includes('concert')) return { text: '#a855f7', bg: '#a855f715', border: '#a855f730', dark: '#9333ea' };
