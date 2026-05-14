@@ -37,11 +37,18 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
   const [showEventMenu, setShowEventMenu] = useState(false);
   const isAdmin = user.role === 'admin';
   const [showOnlyMe, setShowOnlyMe] = useState(!isAdmin);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const desktopMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowEventMenu(false);
+      const target = e.target as Node;
+      const isOutsideMobile = mobileMenuRef.current && !mobileMenuRef.current.contains(target);
+      const isOutsideDesktop = desktopMenuRef.current && !desktopMenuRef.current.contains(target);
+      
+      if (isOutsideMobile && isOutsideDesktop) {
+        setShowEventMenu(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -199,7 +206,7 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
         </div>
 
         {/* MOBILE: event selector row */}
-        <div className="px-3 pb-2 sm:hidden flex gap-2" ref={menuRef}>
+        <div className="px-3 pb-2 sm:hidden flex gap-2" ref={mobileMenuRef}>
           <div className="relative flex-1">
             <button onClick={() => setShowEventMenu(v => !v)}
               className="w-full flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -249,7 +256,7 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
           <div className="h-8 w-px bg-slate-200 mx-1" />
 
           {/* Desktop event selector */}
-          <div className="relative flex-1 max-w-xs" ref={menuRef}>
+          <div className="relative flex-1 max-w-xs" ref={desktopMenuRef}>
             <button onClick={() => setShowEventMenu(v => !v)}
               className="w-full flex items-center justify-between gap-3 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 bg-white hover:border-[#d44211]/40 transition-colors">
               <span className="truncate">{currentEventLabel ? `🎺 ${currentEventLabel}` : '🌍 Global'}</span>
