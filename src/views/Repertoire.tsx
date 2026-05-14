@@ -306,175 +306,177 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d44211]"></div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#d44211]/10 overflow-hidden shadow-sm hidden md:block">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[600px]">
-              <thead>
-                <tr className="bg-[#d44211]/5 border-b border-[#d44211]/10">
-                  <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Títol</th>
-                  <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Compositor / Estil</th>
-                  <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211] text-right">Recursos</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#d44211]/5">
-                {filteredSongs.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-slate-500">
-                      No s'han trobat cançons.
-                    </td>
+        <>
+          <div className="bg-white rounded-xl border border-[#d44211]/10 overflow-hidden shadow-sm hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="bg-[#d44211]/5 border-b border-[#d44211]/10">
+                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Títol</th>
+                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Compositor / Estil</th>
+                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211] text-right">Recursos</th>
                   </tr>
-                ) : (
-                  filteredSongs.map((song) => (
-                    <tr key={song.id} className="hover:bg-[#d44211]/5 transition-colors">
-                      <td className="px-6 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="font-bold text-slate-900 text-base">{song.title}</div>
-                          {userAssignments[song.id] && (
-                            <span className="px-2 py-0.5 bg-[#d44211]/10 text-[#d44211] text-[9px] font-black rounded-md border border-[#d44211]/20 uppercase">
-                              Veu {userAssignments[song.id]}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
-                      </td>
-                      <td className="px-6 py-6 text-slate-600 font-medium">
-                        {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
-                      </td>
-                      <td className="px-6 py-6">
-                        <div className="flex flex-col gap-2 items-end">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            {song.pdfs && song.pdfs.length > 0 ? (
-                              song.pdfs.map((pdf, idx) => (
-                                <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
-                                  <FileText size={14} /> {pdf.instrument}
-                                </a>
-                              ))
-                            ) : (
-                              <span className="px-3 py-2 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed">Sense PDF</span>
-                            )}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            {song.mp3_url ? (
-                              <button 
-                                onClick={() => toggleAudio(song.mp3_url, song.title)}
-                                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white' : 'bg-blue-100 text-blue-700 hover:scale-105'}`}
-                              >
-                                {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
-                                {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Reproduïr'}
-                              </button>
-                            ) : null}
-                            {song.youtube_url ? (
-                              <button 
-                                onClick={() => toggleVideo(song.youtube_url, song.title)}
-                                className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:scale-105'}`}
-                              >
-                                <PlayCircle size={14} /> YouTube
-                              </button>
-                            ) : null}
-                          </div>
-                          {user.role === 'admin' && (
-                            <div className="flex justify-end gap-2 mt-2">
-                              <button 
-                                onClick={() => handleOpenEdit(song)}
-                                className="text-xs font-bold text-blue-600 hover:underline px-2 py-1"
-                              >
-                                Editar
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteSong(song.id)}
-                                className="text-xs font-bold text-red-600 hover:underline px-2 py-1"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-[#d44211]/5">
+                  {filteredSongs.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-8 text-center text-slate-500">
+                        No s'han trobat cançons.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Mobile View */}
-        <div className="md:hidden flex flex-col gap-4">
-          {filteredSongs.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 bg-white rounded-xl border border-[#d44211]/10">
-              No s'han trobat cançons.
-            </div>
-          ) : (
-            filteredSongs.map((song) => (
-              <div key={song.id} className="bg-white rounded-2xl p-5 border border-[#d44211]/10 shadow-sm flex flex-col gap-4 relative">
-                {userAssignments[song.id] && (
-                  <span className="absolute top-5 right-5 px-2 py-1 bg-[#d44211]/10 text-[#d44211] text-[10px] font-black rounded-lg border border-[#d44211]/20 uppercase">
-                    Veu {userAssignments[song.id]}
-                  </span>
-                )}
-                <div>
-                  <h3 className="font-black text-slate-900 text-lg leading-tight pr-16">{song.title}</h3>
-                  <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
-                </div>
-                
-                <div className="text-sm text-slate-600 font-medium">
-                  {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
-                </div>
-                
-                <div className="pt-3 border-t border-[#d44211]/5 flex flex-col gap-3">
-                  {song.pdfs && song.pdfs.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {song.pdfs.map((pdf, idx) => (
-                        <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold active:scale-95 transition-transform border border-red-100">
-                          <FileText size={14} /> {pdf.instrument}
-                        </a>
-                      ))}
-                    </div>
                   ) : (
-                    <div className="text-xs font-bold text-slate-400 italic">Sense partitures</div>
+                    filteredSongs.map((song) => (
+                      <tr key={song.id} className="hover:bg-[#d44211]/5 transition-colors">
+                        <td className="px-6 py-6">
+                          <div className="flex items-center gap-3">
+                            <div className="font-bold text-slate-900 text-base">{song.title}</div>
+                            {userAssignments[song.id] && (
+                              <span className="px-2 py-0.5 bg-[#d44211]/10 text-[#d44211] text-[9px] font-black rounded-md border border-[#d44211]/20 uppercase">
+                                Veu {userAssignments[song.id]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
+                        </td>
+                        <td className="px-6 py-6 text-slate-600 font-medium">
+                          {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
+                        </td>
+                        <td className="px-6 py-6">
+                          <div className="flex flex-col gap-2 items-end">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {song.pdfs && song.pdfs.length > 0 ? (
+                                song.pdfs.map((pdf, idx) => (
+                                  <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
+                                    <FileText size={14} /> {pdf.instrument}
+                                  </a>
+                                ))
+                              ) : (
+                                <span className="px-3 py-2 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed">Sense PDF</span>
+                              )}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {song.mp3_url ? (
+                                <button 
+                                  onClick={() => toggleAudio(song.mp3_url, song.title)}
+                                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white' : 'bg-blue-100 text-blue-700 hover:scale-105'}`}
+                                >
+                                  {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
+                                  {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Reproduïr'}
+                                </button>
+                              ) : null}
+                              {song.youtube_url ? (
+                                <button 
+                                  onClick={() => toggleVideo(song.youtube_url, song.title)}
+                                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:scale-105'}`}
+                                >
+                                  <PlayCircle size={14} /> YouTube
+                                </button>
+                              ) : null}
+                            </div>
+                            {user.role === 'admin' && (
+                              <div className="flex justify-end gap-2 mt-2">
+                                <button 
+                                  onClick={() => handleOpenEdit(song)}
+                                  className="text-xs font-bold text-blue-600 hover:underline px-2 py-1"
+                                >
+                                  Editar
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteSong(song.id)}
+                                  className="text-xs font-bold text-red-600 hover:underline px-2 py-1"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {song.mp3_url && (
-                      <button 
-                        onClick={() => toggleAudio(song.mp3_url, song.title)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-blue-50 text-blue-700 border-blue-100'}`}
-                      >
-                        {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
-                        {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Àudio'}
-                      </button>
-                    )}
-                    {song.youtube_url && (
-                      <button 
-                        onClick={() => toggleVideo(song.youtube_url, song.title)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white border-red-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
-                      >
-                        <PlayCircle size={14} /> YouTube
-                      </button>
-                    )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+  
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col gap-4">
+            {filteredSongs.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 bg-white rounded-xl border border-[#d44211]/10">
+                No s'han trobat cançons.
+              </div>
+            ) : (
+              filteredSongs.map((song) => (
+                <div key={song.id} className="bg-white rounded-2xl p-5 border border-[#d44211]/10 shadow-sm flex flex-col gap-4 relative">
+                  {userAssignments[song.id] && (
+                    <span className="absolute top-5 right-5 px-2 py-1 bg-[#d44211]/10 text-[#d44211] text-[10px] font-black rounded-lg border border-[#d44211]/20 uppercase">
+                      Veu {userAssignments[song.id]}
+                    </span>
+                  )}
+                  <div>
+                    <h3 className="font-black text-slate-900 text-lg leading-tight pr-16">{song.title}</h3>
+                    <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
                   </div>
                   
-                  {user.role === 'admin' && (
-                    <div className="flex justify-end gap-3 mt-1 pt-3 border-t border-slate-50">
-                      <button 
-                        onClick={() => handleOpenEdit(song)}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
-                      >
-                        Editar
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteSong(song.id)}
-                        className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1"
-                      >
-                        Eliminar
-                      </button>
+                  <div className="text-sm text-slate-600 font-medium">
+                    {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
+                  </div>
+                  
+                  <div className="pt-3 border-t border-[#d44211]/5 flex flex-col gap-3">
+                    {song.pdfs && song.pdfs.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {song.pdfs.map((pdf, idx) => (
+                          <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold active:scale-95 transition-transform border border-red-100">
+                            <FileText size={14} /> {pdf.instrument}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs font-bold text-slate-400 italic">Sense partitures</div>
+                    )}
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {song.mp3_url && (
+                        <button 
+                          onClick={() => toggleAudio(song.mp3_url, song.title)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-blue-50 text-blue-700 border-blue-100'}`}
+                        >
+                          {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
+                          {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Àudio'}
+                        </button>
+                      )}
+                      {song.youtube_url && (
+                        <button 
+                          onClick={() => toggleVideo(song.youtube_url, song.title)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white border-red-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+                        >
+                          <PlayCircle size={14} /> YouTube
+                        </button>
+                      )}
                     </div>
-                  )}
+                    
+                    {user.role === 'admin' && (
+                      <div className="flex justify-end gap-3 mt-1 pt-3 border-t border-slate-50">
+                        <button 
+                          onClick={() => handleOpenEdit(song)}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
+                        >
+                          Editar
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteSong(song.id)}
+                          className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        </>
       )}
 
       {/* Add Song Modal */}
