@@ -172,7 +172,7 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
 
   // ── Column widths: smaller on mobile, bigger on desktop
   const COL_W_MOBILE  = 36;
-  const COL_W_DESKTOP = 48;
+  const COL_W_DESKTOP = 120;
   const NAME_W_MOBILE  = 130;
   const NAME_W_DESKTOP = 200;
 
@@ -404,20 +404,19 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
               <thead>
                 <tr>
                   {/* Corner */}
-                  <th className="sticky left-0 z-20 bg-slate-100 border border-slate-300 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap px-4 py-2"
-                    style={{ width: NAME_W_MOBILE, minWidth: NAME_W_MOBILE }}
+                  <th className="sticky left-0 z-20 bg-slate-100 border border-slate-300 text-left text-[12px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap px-4 py-3"
+                    style={{ width: NAME_W_DESKTOP, minWidth: NAME_W_DESKTOP }}
                   >
                     Músic / Obra
                   </th>
 
                   {songs.map(song => (
                     <th key={song.id}
-                      className="border border-slate-200 bg-slate-100 text-center align-bottom p-0"
-                      style={{ width: COL_W_MOBILE, minWidth: COL_W_MOBILE }}
+                      className="border border-slate-200 bg-slate-100 text-center align-middle p-2"
+                      style={{ width: COL_W_DESKTOP, minWidth: COL_W_DESKTOP }}
                     >
                       <div
-                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 90 }}
-                        className="flex text-[11px] font-semibold text-slate-700 leading-tight px-1.5 pb-1.5 items-center"
+                        className="text-[12px] font-bold text-slate-700 leading-tight w-full truncate px-1"
                         title={song.title}
                       >
                         {song.title}
@@ -442,8 +441,8 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
                     {instMusicians.map(musician => (
                       <tr key={musician.uid} className="group hover:bg-blue-50/20 transition-colors">
                         <td
-                          className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30 border border-slate-200 px-4 py-2 text-[12px] font-semibold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis transition-colors"
-                          style={{ maxWidth: NAME_W_MOBILE }}
+                          className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30 border border-slate-200 px-4 py-2 text-[13px] font-semibold text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis transition-colors"
+                          style={{ maxWidth: NAME_W_DESKTOP }}
                           title={musician.name}
                         >
                           {musician.name}
@@ -457,14 +456,14 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
                               onClick={() => handleCellClick(musician.uid, song.id)}
                               title={isAdmin ? `${musician.name} — ${song.title}` : ''}
                               className={`border border-slate-200 text-center transition-all select-none ${isAdmin ? 'cursor-pointer' : ''}`}
-                              style={{ height: 30, width: COL_W_MOBILE }}
+                              style={{ height: 36, width: COL_W_DESKTOP }}
                             >
                               {voice ? (
-                                <span className={`inline-flex items-center justify-center rounded border font-black ${styleClass} text-[11px] w-7 h-7`}>
+                                <span className={`inline-flex items-center justify-center rounded border font-black ${styleClass} text-[12px] w-8 h-8`}>
                                   {voice}
                                 </span>
                               ) : (
-                                <span className="text-slate-200 group-hover:text-slate-300 text-xs transition-colors">·</span>
+                                <span className="text-slate-200 group-hover:text-slate-300 text-sm transition-colors">·</span>
                               )}
                             </td>
                           );
@@ -485,14 +484,16 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
                         }).filter(Boolean) as { v: string; n: number }[];
                         return (
                           <td key={song.id}
-                            className="border border-slate-200 text-center py-0.5 px-0"
-                            style={{ width: COL_W_MOBILE }}>
-                            {counts.map(({ v, n }) => (
-                              <div key={v}
-                                className={`text-[8px] font-black leading-tight mx-auto w-fit px-0.5 rounded ${VOICE_STYLES[v]}`}>
-                                {v}:{n}
-                              </div>
-                            ))}
+                            className="border border-slate-200 text-center py-1.5 px-1"
+                            style={{ width: COL_W_DESKTOP }}>
+                            <div className="flex flex-wrap justify-center gap-1">
+                              {counts.map(({ v, n }) => (
+                                <div key={v}
+                                  className={`text-[9px] font-black leading-tight px-1 rounded ${VOICE_STYLES[v]}`}>
+                                  {v}:{n}
+                                </div>
+                              ))}
+                            </div>
                           </td>
                         );
                       })}
