@@ -40,6 +40,8 @@ export default function PollsView({ user }: PollsViewProps) {
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [orderQuantity, setOrderQuantity] = useState<Record<number, number>>({});
   const [isEditing, setIsEditing] = useState<Record<number, boolean>>({});
+  const [mealSelections, setMealSelections] = useState<Record<number, boolean>>({});
+  const [mealNotes, setMealNotes] = useState<Record<number, string>>({});
 
   const fetchData = async () => {
     try {
@@ -81,7 +83,7 @@ export default function PollsView({ user }: PollsViewProps) {
       // Check if already voted
       const existingVote = votes.find(v => v.poll_id === pollId && v.user_id === user.uid);
       const poll = polls.find(p => p.id === pollId);
-      const quantity = (poll?.type === 'order' || poll?.type === 'meal') ? (orderQuantity[pollId] || 1) : 1;
+      const quantity = poll?.type === 'order' ? (orderQuantity[pollId] || 1) : 1;
 
       if (existingVote) {
         await supabase.from('poll_votes').update({ 
@@ -102,6 +104,40 @@ export default function PollsView({ user }: PollsViewProps) {
     } catch (err) {
       console.error("Error casting vote:", err);
       alert("Error a l'hora de votar.");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const handleMealVote = async (pollId: number) => {
+    setSubmitting(pollId);
+    try {
+      const pollOptions = options.filter(o => o.poll_id === pollId);
+      const selectedOptionIds = pollOptions.filter(o => mealSelections[o.id]).map(o => o.id);
+      
+      if (selectedOptionIds.length === 0) {
+        alert("Si us plau, selecciona almenys una opció.");
+        setSubmitting(null);
+        return;
+      }
+
+      await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('user_id', user.uid);
+
+      const newVotes = selectedOptionIds.map(optId => ({
+        poll_id: pollId,
+        option_id: optId,
+        user_id: user.uid,
+        quantity: 1,
+        notes: mealNotes[optId] || ''
+      }));
+
+      await supabase.from('poll_votes').insert(newVotes);
+
+      setIsEditing({ ...isEditing, [pollId]: false });
+      fetchData();
+    } catch (err) {
+      console.error("Error casting meal vote:", err);
+      alert("Error a l'hora de guardar les opcions de menjar.");
     } finally {
       setSubmitting(null);
     }
@@ -189,20 +225,20 @@ export default function PollsView({ user }: PollsViewProps) {
                 </div>
 
                 <div className="space-y-3">
-                  {(poll.type === 'order' || poll.type === 'meal') && pollActive && (!userVote || isEditing[poll.id]) && (
-                    <div className={`mb-4 p-4 rounded-2xl border flex items-center justify-between ${poll.type === 'meal' ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
-                      <span className={`text-xs font-black uppercase tracking-widest ${poll.type === 'meal' ? 'text-emerald-700' : 'text-amber-700'}`}>Quantitat:</span>
+                  {poll.type === 'order' && pollActive && (!userVote || isEditing[poll.id]) && (
+                    <div className="mb-4 p-4 rounded-2xl border flex items-center justify-between bg-amber-50 border-amber-100">
+                      <span className="text-xs font-black uppercase tracking-widest text-amber-700">Quantitat:</span>
                       <div className="flex items-center gap-3">
                         <button 
                           onClick={() => setOrderQuantity({ ...orderQuantity, [poll.id]: Math.max(1, (orderQuantity[poll.id] || 1) - 1) })}
-                          className={`w-8 h-8 rounded-lg bg-white border flex items-center justify-center ${poll.type === 'meal' ? 'border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'border-amber-200 text-amber-600 hover:bg-amber-100'}`}
+                          className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center border-amber-200 text-amber-600 hover:bg-amber-100"
                         >
                           <Minus size={14} />
                         </button>
-                        <span className={`text-lg font-black w-8 text-center ${poll.type === 'meal' ? 'text-emerald-900' : 'text-amber-900'}`}>{orderQuantity[poll.id] || 1}</span>
+                        <span className="text-lg font-black w-8 text-center text-amber-900">{orderQuantity[poll.id] || 1}</span>
                         <button 
                           onClick={() => setOrderQuantity({ ...orderQuantity, [poll.id]: (orderQuantity[poll.id] || 1) + 1 })}
-                          className={`w-8 h-8 rounded-lg bg-white border flex items-center justify-center ${poll.type === 'meal' ? 'border-emerald-200 text-emerald-600 hover:bg-emerald-100' : 'border-amber-200 text-amber-600 hover:bg-amber-100'}`}
+                          className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center border-amber-200 text-amber-600 hover:bg-amber-100"
                         >
                           <Plus size={14} />
                         </button>
@@ -210,11 +246,65 @@ export default function PollsView({ user }: PollsViewProps) {
                     </div>
                   )}
 
+                  {poll.type === 'meal' && pollActive && (!userVote || isEditing[poll.id]) ? (
+                    <div className="space-y-3">
+                      {pollOptions.map((option) => {
+                        const isNoVinc = option.text.toLowerCase().includes('no vinc');
+                        return (
+                          <div key={option.id} className={`p-4 rounded-2xl border-2 transition-all ${mealSelections[option.id] ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 bg-white hover:border-emerald-200'}`}>
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                checked={!!mealSelections[option.id]}
+                                onChange={(e) => {
+                                  const sel = {...mealSelections};
+                                  if (e.target.checked) sel[option.id] = true;
+                                  else delete sel[option.id];
+                                  if (isNoVinc && e.target.checked) {
+                                     Object.keys(sel).forEach(k => { 
+                                       if (pollOptions.find(o => o.id === parseInt(k)) && k !== String(option.id)) delete sel[parseInt(k)]; 
+                                     });
+                                  } else if (!isNoVinc && e.target.checked) {
+                                     const noVincOpt = pollOptions.find(o => o.text.toLowerCase().includes('no vinc'));
+                                     if (noVincOpt) delete sel[noVincOpt.id];
+                                  }
+                                  setMealSelections(sel);
+                                }}
+                              />
+                              <span className={`text-sm font-bold ${mealSelections[option.id] ? 'text-emerald-800' : 'text-slate-700'}`}>{option.text}</span>
+                            </label>
+                            {mealSelections[option.id] && !isNoVinc && (
+                              <div className="mt-3 pl-8">
+                                <input 
+                                  type="text" 
+                                  placeholder="Què vols menjar? (ex. Entrepà de pernil...)"
+                                  value={mealNotes[option.id] || ''}
+                                  onChange={(e) => setMealNotes({...mealNotes, [option.id]: e.target.value})}
+                                  className="w-full p-2.5 bg-white border border-emerald-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 placeholder:text-emerald-300/70"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <button 
+                        onClick={() => handleMealVote(poll.id)}
+                        disabled={submitting === poll.id}
+                        className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black p-4 rounded-2xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20"
+                      >
+                        {submitting === poll.id ? <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full" /> : <Utensils size={18} />}
+                        Confirmar Selecció
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+
                   {pollOptions.map((option) => {
                     const optionVotes = pollVotes.filter(v => v.option_id === option.id);
-                    const totalOptionQuantity = optionVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
-                    const percentage = totalVotes > 0 ? Math.round((optionVotes.length / totalVotes) * 100) : 0;
-                    const isMyVote = userVote?.option_id === option.id;
+                    const totalOptionQuantity = poll.type === 'meal' ? optionVotes.length : optionVotes.reduce((sum, v) => sum + (v.quantity || 1), 0);
+                    const percentage = totalVotes > 0 ? Math.round((optionVotes.length / (poll.type === 'meal' ? users.length : totalVotes)) * 100) : 0;
+                    const isMyVote = poll.type === 'meal' ? optionVotes.some(v => v.user_id === user.uid) : userVote?.option_id === option.id;
 
                     if (showResults) {
                       return (
@@ -232,7 +322,7 @@ export default function PollsView({ user }: PollsViewProps) {
                                 </span>
                               </div>
                               <span className="text-sm font-black text-slate-900 shrink-0">
-                                {(poll.type === 'order' || poll.type === 'meal') ? `${totalOptionQuantity} racions` : `${percentage}%`}
+                                {poll.type === 'order' ? `${totalOptionQuantity} racions` : poll.type === 'meal' ? `${optionVotes.length} apuntats` : `${percentage}%`}
                               </span>
                             </div>
                           </div>
@@ -241,8 +331,9 @@ export default function PollsView({ user }: PollsViewProps) {
                               {optionVotes.map(v => {
                                 const u = users.find(user => user.uid === v.user_id);
                                 return (
-                                  <span key={v.id} className="text-[9px] bg-white border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
-                                    {u?.name.split(' ')[0]} ({v.quantity || 1})
+                                  <span key={v.id} className={`text-[9px] bg-white border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold ${poll.type === 'meal' && v.notes ? 'flex items-center gap-1' : ''}`}>
+                                    {u?.name.split(' ')[0]} 
+                                    {poll.type === 'meal' ? (v.notes ? <span className="font-medium text-emerald-600 ml-1">- {v.notes}</span> : '') : `(${v.quantity || 1})`}
                                   </span>
                                 );
                               })}
@@ -266,6 +357,8 @@ export default function PollsView({ user }: PollsViewProps) {
                       );
                     }
                   })}
+                  </div>
+                )}
                 </div>
 
                 {showResults && (
@@ -284,8 +377,18 @@ export default function PollsView({ user }: PollsViewProps) {
                           </span>
                           <button 
                             onClick={() => {
-                              if (poll.type === 'order' || poll.type === 'meal') {
-                                setOrderQuantity({ ...orderQuantity, [poll.id]: userVote.quantity || 1 });
+                              if (poll.type === 'order') {
+                                setOrderQuantity({ ...orderQuantity, [poll.id]: userVote?.quantity || 1 });
+                              } else if (poll.type === 'meal') {
+                                const userPollVotes = votes.filter(v => v.poll_id === poll.id && v.user_id === user.uid);
+                                const sels: Record<number, boolean> = { ...mealSelections };
+                                const nts: Record<number, string> = { ...mealNotes };
+                                userPollVotes.forEach(v => {
+                                  sels[v.option_id] = true;
+                                  if (v.notes) nts[v.option_id] = v.notes;
+                                });
+                                setMealSelections(sels);
+                                setMealNotes(nts);
                               }
                               setIsEditing({ ...isEditing, [poll.id]: true });
                             }}
