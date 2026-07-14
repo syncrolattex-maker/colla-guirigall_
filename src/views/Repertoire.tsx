@@ -286,6 +286,28 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
         </div>
       </div>
 
+      {/* BANNER CERCAVILES */}
+      <div className="mb-8">
+        <a 
+          href="/cercaviles.pdf" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block w-full bg-gradient-to-r from-amber-500 to-orange-600 p-8 rounded-3xl shadow-xl shadow-orange-500/20 text-white relative overflow-hidden group hover:-translate-y-1 transition-all duration-300"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/20 transition-all"></div>
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-2">Document Global</p>
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Bíblia de Cercaviles</h3>
+              <p className="text-orange-100 max-w-xl font-medium">Descarrega o visualitza el full de ruta complet amb totes les partitures unificades per als actes al carrer.</p>
+            </div>
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0 group-hover:scale-110 transition-transform">
+              <FileText size={32} />
+            </div>
+          </div>
+        </a>
+      </div>
+
       <div className="mb-8 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative w-full md:flex-1">
           <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#d44211]">
