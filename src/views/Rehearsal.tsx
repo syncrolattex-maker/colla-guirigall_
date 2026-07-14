@@ -112,10 +112,18 @@ export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
     fetchNextRehearsal();
     cleanupPastRehearsals();
 
+    const onFocus = () => {
+      fetchSongs();
+      fetchUsers();
+      fetchNextRehearsal();
+    };
+    window.addEventListener('app-focus', onFocus);
+
     const songsChannel = supabase.channel('public:songs').on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, fetchSongs).subscribe();
     const eventsChannel = supabase.channel('public:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchNextRehearsal).subscribe();
 
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(songsChannel);
       supabase.removeChannel(eventsChannel);
     };

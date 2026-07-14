@@ -72,6 +72,12 @@ export default function Dashboard({ setView, user }: DashboardProps) {
     fetchEvents();
     fetchAttendances();
 
+    const onFocus = () => {
+      fetchEvents();
+      fetchAttendances();
+    };
+    window.addEventListener('app-focus', onFocus);
+
     const eventsChannel = supabase
       .channel('public:events')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents)
@@ -83,6 +89,7 @@ export default function Dashboard({ setView, user }: DashboardProps) {
       .subscribe();
 
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(attendancesChannel);
     };

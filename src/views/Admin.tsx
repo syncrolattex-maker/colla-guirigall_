@@ -465,11 +465,22 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     fetchGlobalAlert();
     fetchAdminPolls();
     fetchPollDetails();
+    
+    const onFocus = () => {
+      fetchEvents();
+      fetchMembers();
+      fetchGlobalAlert();
+      fetchAdminPolls();
+      fetchPollDetails();
+    };
+    window.addEventListener('app-focus', onFocus);
+    
     const eventsChannel = supabase.channel('adm:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const usersChannel = supabase.channel('adm:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchMembers).subscribe();
     const pollsChannel = supabase.channel('adm:polls').on('postgres_changes', { event: '*', schema: 'public', table: 'polls' }, fetchAdminPolls).subscribe();
     const votesChannel = supabase.channel('adm:votes').on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, fetchPollDetails).subscribe();
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(usersChannel);
       supabase.removeChannel(pollsChannel);
@@ -551,9 +562,17 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   };
 
   useEffect(() => {
+    setAttendances({}); // Clear stale data when switching events
     fetchAttendances();
+    
+    const onFocus = () => fetchAttendances();
+    window.addEventListener('app-focus', onFocus);
+    
     const attendancesChannel = supabase.channel('adm:attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
-    return () => { supabase.removeChannel(attendancesChannel); };
+    return () => { 
+      window.removeEventListener('app-focus', onFocus);
+      supabase.removeChannel(attendancesChannel); 
+    };
   }, [selectedEventId]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────

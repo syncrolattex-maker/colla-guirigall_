@@ -80,6 +80,12 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   useEffect(() => {
     fetchSongs();
 
+    const onFocus = () => {
+      fetchSongs();
+      fetchAssignments();
+    };
+    window.addEventListener('app-focus', onFocus);
+
     // Subscribe to changes
     const channel = supabase
       .channel('public:songs')
@@ -97,6 +103,7 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
       .subscribe();
 
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(channel);
       supabase.removeChannel(assignChannel);
     };

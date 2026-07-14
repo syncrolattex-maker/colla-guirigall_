@@ -121,12 +121,22 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     fetchSongs();
     fetchAssignments();
 
+    const onFocus = () => {
+      fetchEvents();
+      fetchAttendances();
+      fetchUsers();
+      fetchSongs();
+      fetchAssignments();
+    };
+    window.addEventListener('app-focus', onFocus);
+
     const eventsChannel = supabase.channel('calendar-view-events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
     const attendancesChannel = supabase.channel('calendar-view-attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
     const usersChannel = supabase.channel('calendar-view-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers).subscribe();
     const assignmentsChannel = supabase.channel('calendar-view-assignments').on('postgres_changes', { event: '*', schema: 'public', table: 'song_assignments' }, fetchAssignments).subscribe();
 
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(attendancesChannel);
       supabase.removeChannel(usersChannel);

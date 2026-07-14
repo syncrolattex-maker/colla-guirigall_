@@ -47,6 +47,13 @@ export default function App() {
   }, [location.pathname]);
 
   useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        window.dispatchEvent(new Event('app-focus'));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
     if (user) {
       const params = new URLSearchParams(window.location.search);
       const eventId = params.get('event');

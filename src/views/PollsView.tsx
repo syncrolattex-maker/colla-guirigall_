@@ -63,6 +63,9 @@ export default function PollsView({ user }: PollsViewProps) {
 
   useEffect(() => {
     fetchData();
+    const onFocus = () => fetchData();
+    window.addEventListener('app-focus', onFocus);
+
     const votesChannel = supabase.channel('polls:votes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, fetchData)
       .subscribe();
@@ -72,6 +75,7 @@ export default function PollsView({ user }: PollsViewProps) {
       .subscribe();
 
     return () => {
+      window.removeEventListener('app-focus', onFocus);
       supabase.removeChannel(votesChannel);
       supabase.removeChannel(pollsChannel);
     };
