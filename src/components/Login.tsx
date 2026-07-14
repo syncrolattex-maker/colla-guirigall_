@@ -29,8 +29,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-mesh flex flex-col items-center justify-center p-6 selection:bg-primary/20">
       <div className="max-w-md w-full glass rounded-[3rem] p-12 flex flex-col items-center text-center shadow-2xl border-white/40">
-        <div className="w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-3xl flex items-center justify-center text-white mb-8 shadow-2xl shadow-primary/40 animate-float">
-          <Music size={40} />
+        <div className="relative w-24 h-24 bg-white rounded-full flex items-center justify-center text-primary mb-8 shadow-2xl shadow-primary/20 animate-float overflow-hidden border-4 border-white">
+          <img src="/logo.png" alt="Logo" className="w-full h-full object-cover relative z-10" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+          <Music size={40} className="absolute z-0 hidden" />
         </div>
         
         <div className="space-y-2 mb-10">

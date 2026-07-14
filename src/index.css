@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui;
+  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui;
   
   /* Modern Vibrant Palette */
   --color-primary: #ff4d00;

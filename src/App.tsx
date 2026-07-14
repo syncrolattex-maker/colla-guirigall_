@@ -293,8 +293,9 @@ export default function App() {
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white/90 backdrop-blur-md border-b border-[#d44211]/10">
         <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#d44211] rounded-lg flex items-center justify-center text-white shadow-lg shadow-[#d44211]/20">
-            <Music size={18} sm:size={20} />
+          <div className="relative w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center text-[#d44211] shadow-lg shadow-[#d44211]/20 overflow-hidden border border-[#d44211]/20">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover relative z-10" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+            <Music size={18} className="absolute z-0 hidden" />
           </div>
           <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Guirigall</h2>
         </div>
