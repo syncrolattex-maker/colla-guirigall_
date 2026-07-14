@@ -743,8 +743,12 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
               <button
                 key={item.id}
                 onClick={() => {
-                  setActiveTab(item.id);
-                  if (item.id === 'veus') setSelectedEventId(0); // Reset for global matrix
+                  if (item.id === 'veus') {
+                    setSelectedEventId(0); // Reset for global matrix
+                    setView('matrix');
+                  } else {
+                    setActiveTab(item.id);
+                  }
                 }}
                 className={`flex items-center gap-4 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] group transition-all ${
                   isActive
@@ -1266,14 +1270,6 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
             </div>
           </>
         )}
-
-        {/* ── MATRIU DE VEUS TAB ──────────────────────────────────────────────── */}
-        {activeTab === 'veus' && (() => {
-          // Navigate directly when tab is active — no intermediate screen
-          setSelectedEventId(0);
-          setView('matrix');
-          return null;
-        })()}
 
         {/* ── MÚSICS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === 'musics' && (
