@@ -49,7 +49,6 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   const [activeVideo, setActiveVideo] = useState<{url: string, title: string} | null>(null);
 
   const fetchSongs = async () => {
-    setLoading(true);
     const { data, error } = await supabase
       .from('songs')
       .select('*')

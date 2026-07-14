@@ -422,7 +422,6 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
 
   const fetchAttendances = async () => {
     if (!selectedEventId) { setLoading(false); return; }
-    setLoading(true);
     const { data, error } = await supabase
       .from('attendances')
       .select('*')

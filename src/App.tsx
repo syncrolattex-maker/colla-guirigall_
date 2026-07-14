@@ -50,12 +50,14 @@ export default function App() {
     if (user) {
       const params = new URLSearchParams(window.location.search);
       const eventId = params.get('event');
-      if (eventId && location.pathname !== '/calendari') {
+      if (eventId && (location.pathname === '/' || location.pathname === '/dashboard')) {
         setSelectedEventId(Number(eventId));
         navigate(`/calendari?event=${eventId}`, { replace: true });
+      } else if (eventId && !selectedEventId) {
+        setSelectedEventId(Number(eventId));
       }
     }
-  }, [user, navigate, location.pathname]);
+  }, [user, navigate, location.pathname, selectedEventId]);
 
   useEffect(() => {
     if (DEV_MODE) {
