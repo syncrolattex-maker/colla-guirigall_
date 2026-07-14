@@ -398,7 +398,9 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     else {
       setEvents(data || []);
       if (data && data.length > 0 && !selectedEventId) {
-        setSelectedEventId(data[0].id);
+        const nowIso = new Date().toISOString();
+        const nextEvent = data.find(e => e.date >= nowIso) || data[data.length - 1];
+        setSelectedEventId(nextEvent.id);
       }
     }
   };
@@ -1204,7 +1206,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                   </button>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
@@ -1262,6 +1264,49 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="lg:hidden flex flex-col divide-y divide-slate-100/50">
+                {loading ? (
+                  <div className="py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></div>
+                ) : combinedData.length === 0 ? (
+                  <div className="py-20 text-center space-y-4">
+                    <Users size={48} className="mx-auto text-slate-200" />
+                    <p className="text-slate-400 font-medium italic">No hi ha músics registrats encara.</p>
+                  </div>
+                ) : (
+                  combinedData.map((m) => (
+                    <div key={m.uid} className={`flex flex-col gap-4 p-6 hover:bg-slate-50/50 transition-colors ${m.status === 'No puc' ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <img src={m.avatar} alt={m.name} className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${m.status === 'Vull anar-hi' ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                          </div>
+                          <div>
+                            <p className="font-black text-sm text-slate-900">{m.name}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{m.instrument}</p>
+                          </div>
+                        </div>
+                        <label className="flex flex-col items-center gap-1 cursor-pointer">
+                          <span className="text-[8px] font-black uppercase text-slate-400">Convocat</span>
+                          <input type="checkbox" checked={m.convocat} onChange={(e) => handleConvocatChange(m.uid, e.target.checked)}
+                            className="w-6 h-6 rounded-lg border-2 border-slate-200 text-primary focus:ring-primary focus:ring-offset-1 transition-all" />
+                        </label>
+                      </div>
+                      <select value={m.status} onChange={(e) => handleAttendanceChange(m.uid, e.target.value)}
+                        className={`w-full text-xs font-black uppercase tracking-widest rounded-xl px-4 py-4 border-none ring-1 ring-slate-200 outline-none transition-all ${
+                          m.status === 'Vull anar-hi' ? 'bg-green-50 text-green-700 ring-green-200' :
+                          m.status === 'No puc' ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-amber-50 text-amber-700 ring-amber-200'
+                        }`}>
+                        <option value="Pendent">Pendent</option>
+                        <option value="Vull anar-hi">Vull anar-hi</option>
+                        <option value="No puc">No puc</option>
+                      </select>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="px-10 py-6 bg-slate-50/50 flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <p>Mostrant {combinedData.length} músics totals</p>
