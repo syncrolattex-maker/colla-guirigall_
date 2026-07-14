@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Music, LogOut, X, Pencil, Save, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Music, LogOut, X, Pencil, AlertTriangle, Info, Menu } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
 import Repertoire from './views/Repertoire';
 import CalendarView from './views/CalendarView';
 import Rehearsal from './views/Rehearsal';
 import Admin from './views/Admin';
-import BottomNav from './components/BottomNav';
 import NotificationBell from './components/NotificationBell';
 import PollsView from './views/PollsView';
 import RepertoireMatrix from './views/RepertoireMatrix';
@@ -30,8 +30,9 @@ export interface GlobalAlert {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [previousView, setPreviousView] = useState<View>('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -42,17 +43,19 @@ export default function App() {
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
   useEffect(() => {
+    setIsMenuOpen(false); // Close mobile menu on route change
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (user) {
       const params = new URLSearchParams(window.location.search);
       const eventId = params.get('event');
-      if (eventId) {
-        setCurrentView('calendar');
+      if (eventId && location.pathname !== '/calendari') {
         setSelectedEventId(Number(eventId));
-        // Clean up title and URL to keep it pretty
-        window.history.replaceState({}, '', window.location.pathname);
+        navigate(`/calendari?event=${eventId}`, { replace: true });
       }
     }
-  }, [user]);
+  }, [user, navigate, location.pathname]);
 
   useEffect(() => {
     if (DEV_MODE) {
@@ -271,31 +274,23 @@ export default function App() {
   };
 
   const handleNavigate = (view: View, eventId?: number | null) => {
-    setPreviousView(currentView);
-    setCurrentView(view);
-    if (eventId !== undefined) {
-      setSelectedEventId(eventId);
-    }
-  };
-
-  const renderView = () => {
-    switch (currentView) {
-      case 'dashboard': return <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
-      case 'repertoire': return <Repertoire user={user} onNavigate={handleNavigate} />;
-      case 'calendar': return <CalendarView user={user} selectedEventId={selectedEventId} setSelectedEventId={setSelectedEventId} />;
-      case 'rehearsal': return <Rehearsal user={user} onNavigate={handleNavigate} />;
-      case 'polls': return <PollsView user={user} />;
-      case 'admin': return user.role === 'admin' ? <Admin user={user} setView={(v) => handleNavigate(v)} setSelectedEventId={setSelectedEventId} /> : <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
-      case 'matrix': return <RepertoireMatrix user={user} eventId={selectedEventId} onBack={() => { handleNavigate(previousView); setSelectedEventId(null); }} />;
-      default: return <Dashboard setView={(v) => handleNavigate(v)} user={user} />;
-    }
+    if (eventId !== undefined) setSelectedEventId(eventId);
+    let path = '/';
+    if (view === 'dashboard') path = '/';
+    if (view === 'repertoire') path = '/repertori';
+    if (view === 'calendar') path = '/calendari' + (eventId ? `?event=${eventId}` : '');
+    if (view === 'rehearsal') path = '/assajos';
+    if (view === 'polls') path = '/enquestes';
+    if (view === 'admin') path = '/admin';
+    if (view === 'matrix') path = '/matriu' + (eventId ? `?event=${eventId}` : '');
+    navigate(path);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f6f6] text-slate-900 font-sans flex flex-col">
+    <div className="min-h-screen bg-[#f8f6f6] text-slate-900 font-sans flex flex-col relative">
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-white/90 backdrop-blur-md border-b border-[#d44211]/10">
-        <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => handleNavigate('dashboard')}>
+        <div className="flex items-center gap-2 sm:gap-3 text-[#d44211] cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#d44211] rounded-lg flex items-center justify-center text-white shadow-lg shadow-[#d44211]/20">
             <Music size={18} sm:size={20} />
           </div>
@@ -304,13 +299,13 @@ export default function App() {
         
         <div className="hidden md:flex items-center gap-8">
           <nav className="flex items-center gap-6">
-            <button onClick={() => handleNavigate('dashboard')} className={`text-sm font-bold tracking-tight ${currentView === 'dashboard' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
-            <button onClick={() => handleNavigate('repertoire')} className={`text-sm font-bold tracking-tight ${currentView === 'repertoire' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
-            <button onClick={() => handleNavigate('calendar')} className={`text-sm font-bold tracking-tight ${currentView === 'calendar' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
-            <button onClick={() => handleNavigate('rehearsal')} className={`text-sm font-bold tracking-tight ${currentView === 'rehearsal' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
-            <button onClick={() => handleNavigate('polls')} className={`text-sm font-bold tracking-tight ${currentView === 'polls' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Enquestes</button>
+            <button onClick={() => navigate('/')} className={`text-sm font-bold tracking-tight ${location.pathname === '/' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Inici</button>
+            <button onClick={() => navigate('/repertori')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/repertori') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Repertori</button>
+            <button onClick={() => navigate('/calendari')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/calendari') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Calendari</button>
+            <button onClick={() => navigate('/assajos')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/assajos') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Obres i Assajos</button>
+            <button onClick={() => navigate('/enquestes')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/enquestes') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Enquestes</button>
             {user.role === 'admin' && (
-              <button onClick={() => handleNavigate('admin')} className={`text-sm font-bold tracking-tight ${currentView === 'admin' ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
+              <button onClick={() => navigate('/admin')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/admin') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
             )}
           </nav>
         </div>
@@ -324,11 +319,37 @@ export default function App() {
           >
             {user.name.charAt(0).toUpperCase()}
           </button>
-          <button onClick={handleLogout} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Tancar sessió">
+          <button onClick={handleLogout} className="hidden md:flex w-8 h-8 sm:w-10 sm:h-10 items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" title="Tancar sessió">
             <LogOut size={18} sm:size={20} />
+          </button>
+          
+          {/* Mobile Menu Toggle */}
+          <button 
+            onClick={() => setIsMenuOpen(!isMenuOpen)} 
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors ml-1"
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </header>
+
+      {/* Mobile Menu Dropdown */}
+      {isMenuOpen && (
+        <div className="md:hidden absolute top-[60px] sm:top-[68px] left-0 right-0 bg-white shadow-xl border-b border-slate-100 z-40 animate-in slide-in-from-top-2">
+          <nav className="flex flex-col p-4 space-y-1">
+            <button onClick={() => navigate('/')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname === '/' ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Inici</button>
+            <button onClick={() => navigate('/repertori')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/repertori') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Repertori</button>
+            <button onClick={() => navigate('/calendari')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/calendari') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Calendari</button>
+            <button onClick={() => navigate('/assajos')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/assajos') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Obres i Assajos</button>
+            <button onClick={() => navigate('/enquestes')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/enquestes') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Enquestes</button>
+            {user.role === 'admin' && (
+              <button onClick={() => navigate('/admin')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/admin') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Admin</button>
+            )}
+            <div className="h-px bg-slate-100 my-2"></div>
+            <button onClick={handleLogout} className="p-4 flex items-center text-left rounded-xl font-bold text-red-600 hover:bg-red-50">Tancar sessió</button>
+          </nav>
+        </div>
+      )}
       
       {/* Global Alert Banner */}
       {globalAlert && (
@@ -344,13 +365,18 @@ export default function App() {
         </div>
       )}
 
-      {/* Mobile navigation is handled by BottomNav */}
-
-      <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto">
-          {renderView()}
-        </main>
-      </div>
+      <main className="flex-1 w-full flex flex-col">
+        <Routes>
+          <Route path="/" element={<Dashboard setView={(v) => handleNavigate(v)} user={user} />} />
+          <Route path="/repertori" element={<Repertoire user={user} onNavigate={handleNavigate} />} />
+          <Route path="/calendari" element={<CalendarView user={user} selectedEventId={selectedEventId} setSelectedEventId={setSelectedEventId} />} />
+          <Route path="/assajos" element={<Rehearsal user={user} onNavigate={handleNavigate} />} />
+          <Route path="/enquestes" element={<PollsView user={user} />} />
+          <Route path="/admin" element={user.role === 'admin' ? <Admin user={user} setView={(v) => handleNavigate(v)} setSelectedEventId={setSelectedEventId} /> : <Navigate to="/" replace />} />
+          <Route path="/matriu" element={<RepertoireMatrix user={user} eventId={selectedEventId} onBack={() => navigate(-1)} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
 
       {/* Profile Modal */}
       {isProfileOpen && (
@@ -437,7 +463,6 @@ export default function App() {
         </div>
       )}
 
-      <BottomNav currentView={currentView} setCurrentView={(v) => handleNavigate(v)} userRole={user.role} />
     </div>
   );
 }
