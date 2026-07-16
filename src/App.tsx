@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Music, LogOut, X, Pencil, AlertTriangle, Info, Menu } from 'lucide-react';
+import { Music, LogOut, X, Pencil, AlertTriangle, Info, Menu, Facebook, Instagram } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Login from './components/Login';
@@ -317,6 +317,16 @@ export default function App() {
             {user.role === 'admin' && (
               <button onClick={() => navigate('/admin')} className={`text-sm font-bold tracking-tight ${location.pathname.startsWith('/admin') ? 'text-[#d44211] border-b-2 border-[#d44211] pb-1' : 'text-slate-600 hover:text-[#d44211]'}`}>Admin</button>
             )}
+            
+            {/* Social Icons Desktop */}
+            <div className="flex items-center gap-3 ml-4 border-l border-slate-200 pl-6">
+              <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors" title="Facebook">
+                <Facebook size={18} />
+              </a>
+              <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors" title="Instagram">
+                <Instagram size={18} />
+              </a>
+            </div>
           </nav>
         </div>
 
@@ -355,7 +365,17 @@ export default function App() {
             {user.role === 'admin' && (
               <button onClick={() => navigate('/admin')} className={`p-4 flex items-center text-left rounded-xl font-bold ${location.pathname.startsWith('/admin') ? 'bg-[#d44211]/10 text-[#d44211]' : 'text-slate-700 hover:bg-slate-50'}`}>Admin</button>
             )}
-            <div className="h-px bg-slate-100 my-2"></div>
+            
+            {/* Social Icons Mobile */}
+            <div className="flex items-center justify-center gap-8 py-4 my-2 border-y border-slate-100 bg-slate-50/50">
+              <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors p-2 bg-white rounded-full shadow-sm" title="Facebook">
+                <Facebook size={24} />
+              </a>
+              <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors p-2 bg-white rounded-full shadow-sm" title="Instagram">
+                <Instagram size={24} />
+              </a>
+            </div>
+
             <button onClick={handleLogout} className="p-4 flex items-center text-left rounded-xl font-bold text-red-600 hover:bg-red-50">Tancar sessió</button>
           </nav>
         </div>

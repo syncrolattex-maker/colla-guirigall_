@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { Music } from 'lucide-react';
+import { Music, Facebook, Instagram } from 'lucide-react';
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,16 @@ export default function Login() {
           </span>
         </button>
         
-        <p className="mt-12 text-[10px] uppercase font-black tracking-widest text-slate-400">
+        <div className="mt-8 mb-4 flex items-center justify-center gap-6">
+          <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors p-3 bg-white rounded-full shadow-md shadow-slate-200/50 hover:shadow-lg hover:-translate-y-1 transform duration-300 border border-slate-100">
+            <Facebook size={22} />
+          </a>
+          <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors p-3 bg-white rounded-full shadow-md shadow-slate-200/50 hover:shadow-lg hover:-translate-y-1 transform duration-300 border border-slate-100">
+            <Instagram size={22} />
+          </a>
+        </div>
+
+        <p className="mt-4 text-[10px] uppercase font-black tracking-widest text-slate-400">
           &copy; 2026 Colla Guirigall. Tots els drets reservats.
         </p>
       </div>
