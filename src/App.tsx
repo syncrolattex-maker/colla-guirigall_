@@ -493,6 +493,21 @@ export default function App() {
         </div>
       )}
 
+      {/* Global Footer */}
+      <footer className="mt-auto py-8 bg-white border-t border-slate-100 flex flex-col items-center justify-center gap-4">
+        <div className="flex items-center gap-6">
+          <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors" title="Facebook">
+            <Facebook size={20} />
+          </a>
+          <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors" title="Instagram">
+            <Instagram size={20} />
+          </a>
+        </div>
+        <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 text-center">
+          &copy; {new Date().getFullYear()} Colla Guirigall d'Alcàsser. Tots els drets reservats.
+        </p>
+      </footer>
+
     </div>
   );
 }
