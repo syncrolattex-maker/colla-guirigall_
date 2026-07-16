@@ -400,7 +400,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
       if (data && data.length > 0 && !selectedEventId) {
         const nowIso = new Date().toISOString();
         const nextEvent = data.find(e => e.date >= nowIso) || data[data.length - 1];
-        setSelectedEventId(nextEvent.id);
+        handleEventSelection(nextEvent.id);
       }
     }
   };

@@ -54,6 +54,12 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
     
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     if (user) {
       const params = new URLSearchParams(window.location.search);
       const eventId = params.get('event');
