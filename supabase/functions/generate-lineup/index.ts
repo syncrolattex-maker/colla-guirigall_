@@ -88,7 +88,6 @@ serve(async (req) => {
 
         // Update states for EVERYONE in the initial pool for this instrument
         // selected ones have their weight reduced. non-selected have their weight increased.
-        // wait, I need to preserve the state for the whole pool
         let poolMap = new Map();
         for (let c of instCandidates) {
           poolMap.set(c.user_id, { ...c, isSelected: false });
@@ -114,15 +113,12 @@ serve(async (req) => {
             user_id: c.user_id,
             instrument: c.instrument,
             peso_acumulado: c.peso_acumulado,
-            last_selected_at: c.isSelected ? new Date().toISOString() : null // wait, last_selected_at should only update if selected, else keep old. 
-            // But we don't have old last_selected_at in the view. Let's not overwrite last_selected_at if false.
+            last_selected_at: c.isSelected ? new Date().toISOString() : null
           });
         }
       }
     }
 
-    // Prepare state upserts
-    // Since we didn't pull old last_selected_at in the view, we just won't update it unless they are selected
     for (let update of stateUpdates) {
       const payload: any = {
         user_id: update.user_id,
