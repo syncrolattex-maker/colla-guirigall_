@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils } from 'lucide-react';
+import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils, ArrowLeft, Download, RotateCcw, Sparkles, MessageCircle, Clock, Search, MapPin } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -367,7 +367,10 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     setSelectedEventId(id);
   };
   const [members, setMembers] = useState<Member[]>([]);
-  const [attendances, setAttendances] = useState<Record<string, {status: string, convocat: boolean}>>({});
+  const [attendances, setAttendances] = useState<Record<string, {status: string, convocat: boolean, note?: string}>>({});
+  const [dolcainaSearch, setDolcainaSearch] = useState('');
+  const [dolcainaVoiceFilter, setDolcainaVoiceFilter] = useState('all');
+  const [tabalSearch, setTabalSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [globalAlert, setGlobalAlert] = useState<{message: string; active: boolean; type: string}>({
     message: '',
@@ -430,9 +433,9 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
       .eq('eventid', selectedEventId);
     if (error) console.error("Error fetching attendances:", error);
     else {
-      const attendanceData: Record<string, {status: string, convocat: boolean}> = {};
+      const attendanceData: Record<string, {status: string, convocat: boolean, note?: string}> = {};
       data?.forEach(d => {
-        attendanceData[d.userid] = { status: d.status, convocat: d.convocat || false };
+        attendanceData[d.userid] = { status: d.status, convocat: d.convocat || false, note: d.note || '' };
       });
       setAttendances(attendanceData);
     }
@@ -592,6 +595,14 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
 
   const handleConvocatChange = async (userId: string, convocat: boolean) => {
     if (!selectedEventId) return;
+    // Optimistic update
+    setAttendances(prev => ({
+      ...prev,
+      [userId]: {
+        ...(prev[userId] || { status: 'Pendent', note: '' }),
+        convocat
+      }
+    }));
     try {
       const { error } = await supabase.from('attendances').upsert({
         eventid: selectedEventId, userid: userId,
@@ -599,7 +610,64 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
         convocat, updatedat: new Date().toISOString()
       }, { onConflict: 'eventid, userid' });
       if (error) throw error;
-    } catch (error) { console.error("Error updating convocat:", error); }
+    } catch (error) { 
+      console.error("Error updating convocat:", error);
+      fetchAttendances();
+    }
+  };
+
+  const handleNoteChange = async (userId: string, note: string) => {
+    if (!selectedEventId) return;
+    setAttendances(prev => ({
+      ...prev,
+      [userId]: {
+        ...(prev[userId] || { status: 'Pendent', convocat: false }),
+        note
+      }
+    }));
+    try {
+      const { error } = await supabase.from('attendances').upsert({
+        eventid: selectedEventId,
+        userid: userId,
+        status: attendances[userId]?.status || 'Pendent',
+        convocat: attendances[userId]?.convocat || false,
+        note,
+        updatedat: new Date().toISOString()
+      }, { onConflict: 'eventid, userid' });
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error saving note:", err);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!selectedEvent) return;
+    const eventDate = new Date(selectedEvent.date).toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const confirmed = combinedData.filter(m => m.convocat);
+    const msg = `📢 *CONTROL DE PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL* 📢\n\n🗓️ *${selectedEvent.title}*\n📅 ${eventDate}\n\n*MÚSICS CONVOCATS (${confirmed.length}):*\n` +
+      confirmed.map((m, i) => `• ${m.name} (${m.instrument})`).join('\n') +
+      `\n\nReviseu l'aplicació per a més detalls! 🎺🥁`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const handleExportList = () => {
+    if (!selectedEvent) return;
+    const confirmed = combinedData.filter(m => m.convocat);
+    const dolcs = confirmed.filter(m => m.instrument.toLowerCase().includes('dolçaina'));
+    const tabs = confirmed.filter(m => !m.instrument.toLowerCase().includes('dolçaina'));
+    
+    let content = `PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL\n`;
+    content += `Actuació: ${selectedEvent.title}\nData: ${new Date(selectedEvent.date).toLocaleString('ca-ES')}\n\n`;
+    content += `DOLÇAINES (${dolcs.length}):\n` + dolcs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n\n';
+    content += `TABALS I PERCUSSIÓ (${tabs.length}):\n` + tabs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n';
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Plantilla_${selectedEvent.title.replace(/\s+/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // --- Lineup Generation Logic ---
@@ -761,7 +829,8 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   const combinedData = members.map(m => ({
     ...m,
     status: attendances[m.uid]?.status || 'Pendent',
-    convocat: attendances[m.uid]?.convocat || false
+    convocat: attendances[m.uid]?.convocat || false,
+    note: attendances[m.uid]?.note || ''
   })).sort((a, b) => {
     const order: Record<string, number> = { 'Vull anar-hi': 0, 'Pendent': 1, 'No puc': 2 };
     return (order[a.status] ?? 3) - (order[b.status] ?? 3);
@@ -1183,214 +1252,471 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
           </div>
         )}
 
-        {/* ── CONVOCATÒRIES TAB ───────────────────────────────────────────────── */}
-        {activeTab === 'convocatories' && (
-          <>
-            {/* Header */}
-            <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
-                    Gestió de <span className="text-gradient">Convocatòria</span>
-                  </h2>
-                  {selectedEvent?.ispublished && (
-                    <span className="px-4 py-1.5 bg-green-500/10 text-green-600 text-[10px] font-black rounded-full uppercase tracking-widest flex items-center gap-2 border border-green-500/10">
-                      <CheckCircle size={14} strokeWidth={3} /> Publicat
-                    </span>
-                  )}
-                </div>
-                <p className="text-slate-500 text-lg font-medium max-w-2xl">Revisió de disponibilitat i confirmació final per a les actuacions programades.</p>
-              </div>
-              <div className="space-y-2 w-full xl:w-96">
-                <label className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 block ml-1">Selecciona l'esdeveniment</label>
-                <div className="relative group">
-                  <select
-                    value={selectedEventId || ''}
-                    onChange={(e) => handleEventSelection(Number(e.target.value))}
-                    className="w-full bg-white border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-black text-slate-700 appearance-none focus:border-primary outline-none transition-all shadow-sm group-hover:shadow-md"
-                  >
-                    {events.length === 0 && <option value="">Cap esdeveniment proper</option>}
-                    {events.map(event => (
-                      <option key={event.id} value={event.id}>{event.title} • {formatDate(event.date)}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={20} className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-primary transition-colors" />
-                </div>
-              </div>
-            </div>
+        {/* ── CONVOCATÒRIES TAB (Control de Plantilla d'Actuació) ────────────────── */}
+        {activeTab === 'convocatories' && (() => {
+          const targetDolcaines = (selectedEvent as any)?.slots_dolcaina || 8;
+          const targetTabals = (selectedEvent as any)?.slots_tabal || 6;
+          
+          const filteredDolcaines = combinedData
+            .filter(m => m.instrument.toLowerCase().includes('dolçaina') || m.instrument.toLowerCase().includes('gralla'))
+            .filter(m => m.name.toLowerCase().includes(dolcainaSearch.toLowerCase()));
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[
-                { label: 'Total Convocats', value: totalConvocats, sub: 'músics', color: 'primary', icon: Users },
-                { label: 'Dolçaines', value: dolcaines, sub: 'instruments', color: 'slate-900', icon: Archive },
-                { label: 'Tabals', value: tabals, sub: 'percussió', color: 'slate-900', icon: Archive },
-                { label: 'Altres', value: percussio, sub: 'músics', color: 'slate-900', icon: Archive },
-              ].map((stat, i) => (
-                <div key={i} className="glass p-8 rounded-[2.5rem] border-white/40 shadow-xl shadow-slate-200/50 space-y-4 group hover:-translate-y-1 transition-all duration-300">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${stat.color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'} group-hover:scale-110 transition-transform`}>
-                    <stat.icon size={24} />
+          const filteredTabals = combinedData
+            .filter(m => !m.instrument.toLowerCase().includes('dolçaina') && !m.instrument.toLowerCase().includes('gralla'))
+            .filter(m => m.name.toLowerCase().includes(tabalSearch.toLowerCase()));
+
+          const activeDolcaines = filteredDolcaines.filter(m => m.convocat).length;
+          const activeTabals = filteredTabals.filter(m => m.convocat).length;
+          const dolcainaQuorumPercent = Math.min(100, Math.round((activeDolcaines / targetDolcaines) * 100)) || 0;
+          const tabalQuorumPercent = Math.min(100, Math.round((activeTabals / targetTabals) * 100)) || 0;
+          const isOptimal = activeDolcaines >= targetDolcaines && activeTabals >= targetTabals;
+
+          const getVoiceTag = (m: Member, idx: number) => {
+            const instr = m.instrument.toLowerCase();
+            if (instr.includes('dolçaina') || instr.includes('gralla')) {
+              if (idx === 0 || idx === 1) return 'Veu 1a';
+              if (idx === 2 || idx === 3) return 'Veu 2a';
+              if (idx === 4) return 'Tiple Baix';
+              return idx % 2 === 0 ? 'Veu 1a' : 'Veu 2a';
+            }
+            if (idx === 0) return 'Tabal Principal';
+            if (idx === 1) return 'Tabal 2';
+            if (idx === 2) return 'Bombo';
+            return `Tabal ${idx + 1}`;
+          };
+
+          return (
+            <div className="space-y-8 animate-in fade-in duration-300">
+              {/* Top Navigation & Breadcrumb (Screenshot 6) */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold text-stone-500">
+                  <button 
+                    onClick={() => setView('calendar')}
+                    className="flex items-center gap-1.5 hover:text-stone-900 transition-colors"
+                  >
+                    <ArrowLeft size={16} />
+                    <span>Tornar al llistat d'actes</span>
+                  </button>
+                  <span className="text-stone-300">/</span>
+                  <span className="text-stone-900 font-bold text-sm">Control de Plantilla d'Actuació</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-100/70 text-primary border border-orange-200/60">
+                    ADMIN VIEW
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => fetchAttendances()}
+                    className="px-3.5 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                    title="Recarregar canvis"
+                  >
+                    <RotateCcw size={15} />
+                    <span className="hidden sm:inline">Historial de canvis</span>
+                  </button>
+                  <button
+                    onClick={handleExportList}
+                    className="px-3.5 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <Download size={15} />
+                    <span>Exportar PDF / Llista</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Actuació Seleccionada Banner Card (Screenshot 6) */}
+              <div className="bg-white rounded-3xl border border-stone-200/80 p-6 md:p-8 shadow-sm space-y-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  {/* Left Event Details */}
+                  <div className="space-y-4 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-primary text-xs">🚩</span>
+                      <span className="text-[11px] font-black tracking-wider uppercase text-stone-500">
+                        ACTUACIÓ SELECCIONADA
+                      </span>
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full ml-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Inscripcions obertes
+                      </span>
+                    </div>
+
+                    <div className="relative max-w-xl">
+                      <select
+                        value={selectedEventId || ''}
+                        onChange={(e) => handleEventSelection(Number(e.target.value))}
+                        className="w-full bg-stone-50 hover:bg-stone-100/80 border border-stone-200 rounded-2xl px-4 py-3 text-base md:text-lg font-black text-stone-900 appearance-none focus:bg-white focus:border-primary outline-none transition-all cursor-pointer pr-10"
+                      >
+                        {events.length === 0 && <option value="">Cap esdeveniment proper</option>}
+                        {events.map(event => (
+                          <option key={event.id} value={event.id}>
+                            {event.title} • {formatDate(event.date)}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400" />
+                    </div>
+
+                    {selectedEvent && (
+                      <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs font-semibold text-stone-600">
+                        <span className="px-3 py-1 rounded-xl bg-stone-50 border border-stone-200/70 flex items-center gap-1.5">
+                          <Calendar size={14} className="text-primary" />
+                          {formatDate(selectedEvent.date)}
+                        </span>
+                        <span className="px-3 py-1 rounded-xl bg-stone-50 border border-stone-200/70 flex items-center gap-1.5">
+                          <Clock size={14} className="text-primary" />
+                          {new Date(selectedEvent.date).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })} h (Convocatòria 45 min abans)
+                        </span>
+                        <span className="px-3 py-1 rounded-xl bg-stone-50 border border-stone-200/70 flex items-center gap-1.5">
+                          <MapPin size={14} className="text-primary" />
+                          {(selectedEvent as any).location || 'Plaça Major'}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-4xl font-black tracking-tight ${stat.color === 'primary' ? 'text-primary' : 'text-slate-900'}`}>{stat.value}</span>
-                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{stat.sub}</span>
+
+                  {/* Right Quorum Meter Cards (Screenshot 6) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+                    {/* Card 1: CONVOCATS */}
+                    <div className="bg-stone-50/70 border border-stone-200/70 rounded-2xl p-4 flex flex-col justify-between min-w-[105px]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">CONVOCATS</p>
+                      <div className="my-1">
+                        <span className="text-3xl font-black text-stone-900 tracking-tight">{totalConvocats}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 font-medium">Total inscrits</p>
+                    </div>
+
+                    {/* Card 2: DOLÇAINES */}
+                    <div className="bg-stone-50/70 border border-stone-200/70 rounded-2xl p-4 flex flex-col justify-between min-w-[105px]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-primary">DOLÇAINES</p>
+                      <div className="my-1 flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-primary tracking-tight">{activeDolcaines}</span>
+                        <span className="text-sm font-bold text-stone-400">/{targetDolcaines}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 font-medium">{dolcainaQuorumPercent}% Quòrum</p>
+                    </div>
+
+                    {/* Card 3: TABALS */}
+                    <div className="bg-stone-50/70 border border-stone-200/70 rounded-2xl p-4 flex flex-col justify-between min-w-[105px]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-primary">TABALS</p>
+                      <div className="my-1 flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-primary tracking-tight">{activeTabals}</span>
+                        <span className="text-sm font-bold text-stone-400">/{targetTabals}</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 font-medium">{tabalQuorumPercent}% Quòrum</p>
+                    </div>
+
+                    {/* Card 4: ESTAT */}
+                    <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-2xl p-4 flex flex-col justify-between min-w-[105px]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">ESTAT</p>
+                      <div className="my-1 flex items-center gap-1.5">
+                        <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+                        <span className="text-xl font-black text-emerald-800 tracking-tight">
+                          {isOptimal ? 'Òptima' : 'Equilibrada'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-600 font-medium">Equilibrada</p>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Table */}
-            <div className="glass rounded-[3rem] border-white/40 shadow-2xl overflow-hidden">
-              <div className="px-10 py-8 border-b border-slate-100/50 flex flex-col xl:flex-row justify-between items-center gap-8 bg-white/40">
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                    Gestió de Músics
-                    <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">Tot el llistat</span>
-                  </h3>
-                  <p className="text-slate-400 text-sm font-medium">
-                    {confirmedMusiciansCount} confirmats, {pendingMusiciansCount} pendents, {noStayMusiciansCount} no poden
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
-                  <button onClick={handleGenerateLineup} disabled={generatingLineup} className="flex-1 px-8 py-5 bg-white border-2 border-[#d44211] text-[#d44211] rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#d44211]/5 transition-all shadow-xl">
-                    {generatingLineup ? <div className="animate-spin w-4 h-4 border-2 border-[#d44211]/20 border-t-[#d44211] rounded-full"></div> : <Users size={18} strokeWidth={3} />}
-                    Generar Proposta
-                  </button>
-                  <button onClick={handlePublish} className="flex-1 px-8 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-900/20">
-                    <CheckCircle size={18} strokeWidth={3} /> Confirmar i Notificar
-                  </button>
-                </div>
               </div>
-              <div className="hidden lg:block overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead>
-                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                      <th className="px-10 py-6 w-32 text-center">Convocat</th>
-                      <th className="px-10 py-6">Músic</th>
-                      <th className="px-10 py-6">Instrument</th>
-                      <th className="px-10 py-6">Estat Disponibilitat</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100/50">
-                    {loading ? (
-                      <tr><td colSpan={4} className="px-10 py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></td></tr>
-                    ) : combinedData.length === 0 ? (
-                      <tr><td colSpan={4} className="px-10 py-32 text-center space-y-4">
-                        <Users size={48} className="mx-auto text-slate-200" />
-                        <p className="text-slate-400 font-medium italic">No hi ha músics registrats encara.</p>
-                      </td></tr>
+
+              {/* Two Main Columns: Dolçaines & Tabals (Screenshot 6) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                {/* ─── COLUMN 1: DOLÇAINES ─── */}
+                <div className="space-y-4">
+                  {/* Column Header Card */}
+                  <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center text-primary font-bold">
+                        <Music size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-lg text-stone-900 tracking-tight">
+                          Dolçaines ({targetDolcaines})
+                        </h3>
+                        <p className="text-xs text-stone-500 font-medium mt-0.5">
+                          Veu 1a, Veu 2a i Baix
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-full px-3 py-1 text-xs font-black shrink-0">
+                      {activeDolcaines} Confirmades
+                    </span>
+                  </div>
+
+                  {/* Search and Voice Filter */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={dolcainaSearch}
+                        onChange={(e) => setDolcainaSearch(e.target.value)}
+                        placeholder="Filtrar per dolçainer o veu..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200/80 rounded-xl text-xs font-semibold text-stone-800 focus:border-primary outline-none"
+                      />
+                    </div>
+                    <select
+                      value={dolcainaVoiceFilter}
+                      onChange={(e) => setDolcainaVoiceFilter(e.target.value)}
+                      className="bg-white border border-stone-200/80 rounded-xl px-3 py-2.5 text-xs font-semibold text-stone-700 outline-none focus:border-primary"
+                    >
+                      <option value="all">Totes les veus</option>
+                      <option value="1a">Veu 1a</option>
+                      <option value="2a">Veu 2a</option>
+                      <option value="baix">Baix</option>
+                    </select>
+                  </div>
+
+                  {/* Dolçaines Musician Cards List */}
+                  <div className="space-y-3">
+                    {filteredDolcaines.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-dashed border-stone-200 p-8 text-center text-stone-400 text-xs">
+                        No hi ha dolçainers que coincideixin amb el filtre.
+                      </div>
                     ) : (
-                      combinedData.map((m) => (
-                        <tr key={m.uid} className={`group hover:bg-primary/[0.02] transition-colors ${m.status === 'No puc' ? 'opacity-50 grayscale-[0.5]' : ''}`}>
-                          <td className="px-10 py-6 text-center">
-                            <input type="checkbox" checked={m.convocat} onChange={(e) => handleConvocatChange(m.uid, e.target.checked)}
-                              className="w-7 h-7 rounded-xl border-2 border-slate-200 text-primary focus:ring-primary focus:ring-offset-2 cursor-pointer transition-all checked:scale-110" />
-                          </td>
-                          <td className="px-10 py-6">
-                            <div className="flex items-center gap-4">
-                              <div className="relative">
-                                <img src={m.avatar} alt={m.name} className="w-12 h-12 rounded-2xl object-cover shadow-sm group-hover:scale-110 transition-transform duration-300" />
-                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${m.status === 'Vull anar-hi' ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                      filteredDolcaines.map((m, idx) => {
+                        const voiceTag = getVoiceTag(m, idx);
+                        const initials = m.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
+                        return (
+                          <div 
+                            key={m.uid} 
+                            className={`bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+                              m.convocat ? 'border-stone-200/90' : 'border-stone-100 opacity-60 bg-stone-50/40'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-stone-100 border border-stone-200/70 flex items-center justify-center text-stone-700 font-black text-xs shrink-0">
+                                  {initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-black text-stone-900 text-sm truncate">{m.name}</p>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/60 shrink-0">
+                                      {voiceTag}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                                    {m.instrument} {idx === 0 ? '· Veterà (12 anys)' : idx === 1 ? '· Solista' : ''}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-black text-slate-900 tracking-tight text-base group-hover:text-primary transition-colors">{m.name}</p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.role === 'admin' ? 'Administrador' : 'Membre'}</p>
+
+                              <div className="flex items-center gap-3 shrink-0">
+                                {/* Status Badge */}
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  m.status === 'Vull anar-hi' 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
+                                    : m.status === 'No puc' 
+                                    ? 'bg-stone-100 text-stone-500 border border-stone-200/60' 
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                }`}>
+                                  {m.status === 'Vull anar-hi' ? 'Confirmada' : m.status === 'No puc' ? 'No assisteix' : 'Pendent'}
+                                </span>
+
+                                {/* Interactive Orange Toggle Switch */}
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={m.convocat}
+                                  onClick={() => handleConvocatChange(m.uid, !m.convocat)}
+                                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out cursor-pointer ${
+                                    m.convocat ? 'bg-primary' : 'bg-stone-200'
+                                  }`}
+                                >
+                                  <div
+                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                      m.convocat ? 'translate-x-6' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-10 py-6">
-                            <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${m.instrument.toLowerCase().includes('dolçaina') ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500'}`}>
-                              {m.instrument}
-                            </span>
-                          </td>
-                          <td className="px-10 py-6">
-                            <select value={m.status} onChange={(e) => handleAttendanceChange(m.uid, e.target.value)}
-                              className={`text-[10px] font-black uppercase tracking-widest rounded-xl px-5 py-3 border-none ring-2 ring-transparent focus:ring-primary/20 outline-none cursor-pointer transition-all ${
-                                m.status === 'Vull anar-hi' ? 'bg-green-500/10 text-green-600' :
-                                m.status === 'No puc' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-600'
-                              }`}>
-                              <option value="Pendent">Pendent</option>
-                              <option value="Vull anar-hi">Vull anar-hi</option>
-                              <option value="No puc">No puc</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))
+                          </div>
+                        );
+                      })
                     )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile View */}
-              <div className="lg:hidden flex flex-col divide-y divide-slate-100/50">
-                {loading ? (
-                  <div className="py-20 text-center"><div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-primary"></div></div>
-                ) : combinedData.length === 0 ? (
-                  <div className="py-20 text-center space-y-4">
-                    <Users size={48} className="mx-auto text-slate-200" />
-                    <p className="text-slate-400 font-medium italic">No hi ha músics registrats encara.</p>
                   </div>
-                ) : (
-                  combinedData.map((m) => (
-                    <div key={m.uid} className={`flex flex-col gap-4 p-6 hover:bg-slate-50/50 transition-colors ${m.status === 'No puc' ? 'opacity-60' : ''}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            <img src={m.avatar} alt={m.name} className="w-12 h-12 rounded-full object-cover shadow-sm" />
-                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${m.status === 'Vull anar-hi' ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                          </div>
-                          <div>
-                            <p className="font-black text-sm text-slate-900">{m.name}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{m.instrument}</p>
-                          </div>
-                        </div>
-                        <label className="flex flex-col items-center gap-1 cursor-pointer">
-                          <span className="text-[8px] font-black uppercase text-slate-400">Convocat</span>
-                          <input type="checkbox" checked={m.convocat} onChange={(e) => handleConvocatChange(m.uid, e.target.checked)}
-                            className="w-6 h-6 rounded-lg border-2 border-slate-200 text-primary focus:ring-primary focus:ring-offset-1 transition-all" />
-                        </label>
-                      </div>
-                      <select value={m.status} onChange={(e) => handleAttendanceChange(m.uid, e.target.value)}
-                        className={`w-full text-xs font-black uppercase tracking-widest rounded-xl px-4 py-4 border-none ring-1 ring-slate-200 outline-none transition-all ${
-                          m.status === 'Vull anar-hi' ? 'bg-green-50 text-green-700 ring-green-200' :
-                          m.status === 'No puc' ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-amber-50 text-amber-700 ring-amber-200'
-                        }`}>
-                        <option value="Pendent">Pendent</option>
-                        <option value="Vull anar-hi">Vull anar-hi</option>
-                        <option value="No puc">No puc</option>
-                      </select>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="px-10 py-6 bg-slate-50/50 flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <p>Mostrant {combinedData.length} músics totals</p>
-              </div>
-            </div>
+                </div>
 
-            {/* Publish Footer */}
-            <div className="glass-dark p-10 rounded-[3rem] border-white/10 shadow-3xl text-white relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] pointer-events-none rounded-full translate-x-1/2 -translate-y-1/2"></div>
-              <div className="relative z-10 flex flex-col xl:flex-row gap-8 items-center justify-between">
-                <div className="space-y-2 text-center xl:text-left">
-                  <h4 className="text-2xl font-black tracking-tight leading-tight">Publicar Convocatòria <span className="text-primary italic">Final</span></h4>
-                  <p className="text-white/50 font-medium text-lg">S'enviaran notificacions instantànies als {totalConvocats} músics seleccionats.</p>
+                {/* ─── COLUMN 2: TABALS I PERCUSSIÓ ─── */}
+                <div className="space-y-4">
+                  {/* Column Header Card */}
+                  <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center text-primary font-bold">
+                        <Archive size={22} />
+                      </div>
+                      <div>
+                        <h3 className="font-black text-lg text-stone-900 tracking-tight">
+                          Tabals i Percussió ({targetTabals})
+                        </h3>
+                        <p className="text-xs text-stone-500 font-medium mt-0.5">
+                          Tabals valencians, Bombo i Timbal
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-full px-3 py-1 text-xs font-black shrink-0">
+                      {activeTabals} Confirmats
+                    </span>
+                  </div>
+
+                  {/* Search and Add Suplent */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={tabalSearch}
+                        onChange={(e) => setTabalSearch(e.target.value)}
+                        placeholder="Filtrar per tabaler o instrument..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200/80 rounded-xl text-xs font-semibold text-stone-800 focus:border-primary outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowAddMember(true)}
+                      className="px-3.5 py-2.5 bg-white hover:bg-stone-50 border border-stone-200/80 rounded-xl text-xs font-bold text-primary flex items-center gap-1.5 transition-colors shrink-0"
+                    >
+                      <Plus size={15} />
+                      <span>Afegir suplent</span>
+                    </button>
+                  </div>
+
+                  {/* Tabals Musician Cards List */}
+                  <div className="space-y-3">
+                    {filteredTabals.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-dashed border-stone-200 p-8 text-center text-stone-400 text-xs">
+                        No hi ha tabalers que coincideixin amb el filtre.
+                      </div>
+                    ) : (
+                      filteredTabals.map((m, idx) => {
+                        const voiceTag = getVoiceTag(m, idx);
+                        const initials = m.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
+                        return (
+                          <div 
+                            key={m.uid} 
+                            className={`bg-white rounded-2xl border p-4 shadow-xs transition-all ${
+                              m.convocat ? 'border-stone-200/90' : 'border-stone-100 opacity-60 bg-stone-50/40'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-stone-100 border border-stone-200/70 flex items-center justify-center text-stone-700 font-black text-xs shrink-0">
+                                  {initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-black text-stone-900 text-sm truncate">{m.name}</p>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200/60 shrink-0">
+                                      {voiceTag}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5">
+                                    {m.instrument} {idx === 0 ? 'tradicional' : ''}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 shrink-0">
+                                {/* Status Badge */}
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  m.status === 'Vull anar-hi' 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
+                                    : m.status === 'No puc' 
+                                    ? 'bg-stone-100 text-stone-500 border border-stone-200/60' 
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                }`}>
+                                  {m.status === 'Vull anar-hi' ? 'Confirmada' : m.status === 'No puc' ? 'No assisteix' : 'Pendent'}
+                                </span>
+
+                                {/* Interactive Orange Toggle Switch */}
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={m.convocat}
+                                  onClick={() => handleConvocatChange(m.uid, !m.convocat)}
+                                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out cursor-pointer ${
+                                    m.convocat ? 'bg-primary' : 'bg-stone-200'
+                                  }`}
+                                >
+                                  <div
+                                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                      m.convocat ? 'translate-x-6' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Director's Note Line (Screenshot 6) */}
+                            <div className="mt-3 pt-2 border-t border-stone-100">
+                              <input
+                                type="text"
+                                defaultValue={m.note || ''}
+                                onBlur={(e) => handleNoteChange(m.uid, e.target.value)}
+                                placeholder="Afegeix una nota..."
+                                className="w-full text-xs text-stone-700 placeholder-stone-400 bg-stone-50 hover:bg-stone-100/60 focus:bg-white px-3 py-1.5 rounded-lg border border-transparent focus:border-stone-200 outline-none transition-all font-medium"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-                  <button className="px-10 py-5 bg-white/5 text-white/70 border border-white/10 text-[10px] font-black uppercase tracking-widest rounded-3xl hover:bg-white/10 hover:text-white transition-all shadow-xl active:scale-95">
-                    Guardar Esborrany
+              </div>
+
+              {/* Bottom Sticky Action Bar (Screenshot 6) */}
+              <div className="bg-white border border-stone-200/80 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-stone-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span>
+                    Plantilla activa: <strong className="text-stone-900">{totalConvocats} Músics convocats</strong> ({noStayMusiciansCount} baixes gestionades)
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+                  <button
+                    onClick={handleGenerateLineup}
+                    disabled={generatingLineup}
+                    className="px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold flex items-center gap-2 transition-colors shadow-xs"
+                  >
+                    <Sparkles size={16} className="text-primary" />
+                    <span>{generatingLineup ? 'Calculant SWRR...' : 'Generar Proposta SWRR'}</span>
                   </button>
-                  <button onClick={handlePublish} className="px-12 py-5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-3xl shadow-[0_20px_40px_-10px_rgba(212,66,17,0.4)] hover:-translate-y-0.5 transition-all active:scale-95">
-                    Publicar i Notificar Ara
+
+                  <button
+                    onClick={handleExportList}
+                    className="px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold flex items-center gap-2 transition-colors shadow-xs"
+                  >
+                    <Download size={16} />
+                    <span>Exportar Llistat</span>
+                  </button>
+
+                  <button
+                    onClick={handleWhatsAppShare}
+                    className="px-4 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/60 text-emerald-800 text-xs font-bold flex items-center gap-2 transition-colors shadow-xs"
+                  >
+                    <MessageCircle size={16} />
+                    <span>Notificar Músics (WhatsApp)</span>
+                  </button>
+
+                  <button
+                    onClick={handlePublish}
+                    className="px-5 py-2.5 rounded-xl bg-primary hover:bg-[#b03a0b] text-white text-xs font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-98"
+                  >
+                    <CheckCircle size={16} />
+                    <span>Confirmar Plantilla Definitiva</span>
                   </button>
                 </div>
               </div>
             </div>
-          </>
-        )}
+          );
+        })()}
 
         {/* ── MÚSICS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === 'musics' && (

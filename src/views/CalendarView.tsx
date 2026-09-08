@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -52,6 +52,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null);
   const [viewingEvent, setViewingEvent] = useState<AppEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [eventTypeFilter, setEventTypeFilter] = useState<'all' | 'actuacions' | 'assajos'>('all');
   const [newEvent, setNewEvent] = useState<{
     title: string;
     type: string;
@@ -362,227 +363,381 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const upcomingEvents = events.filter(e => new Date(e.date) >= now);
   const pastEvents = events.filter(e => new Date(e.date) < now).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
-  const displayedEvents = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
+  const baseEvents = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
+  
+  const displayedEvents = baseEvents.filter(event => {
+    if (eventTypeFilter === 'actuacions') return event.type !== 'Assaig' && !event.type.startsWith('Assaig');
+    if (eventTypeFilter === 'assajos') return event.type === 'Assaig' || event.type.startsWith('Assaig');
+    return true;
+  });
+
+  // Helper for event image matching screenshot 3
+  const getEventImage = (event: AppEvent) => {
+    const t = (event.type + ' ' + event.title).toLowerCase();
+    if (t.includes('concert') || t.includes('audició') || t.includes('intercanvi')) {
+      return 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop';
+    }
+    if (t.includes('cercavila') || t.includes('pregó') || t.includes('paelles') || t.includes('albaes')) {
+      return 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop';
+    }
+    if (t.includes('ball') || t.includes('corpus') || t.includes('moma')) {
+      return 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?q=80&w=800&auto=format&fit=crop';
+    }
+    if (t.includes('processó') || t.includes('crist') || t.includes('carme')) {
+      return 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?q=80&w=800&auto=format&fit=crop';
+    }
+    return 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=800&auto=format&fit=crop';
+  };
+
+  // Find next rehearsal
+  const nextRehearsal = upcomingEvents.find(e => e.type === 'Assaig' || e.type.startsWith('Assaig'));
+
+  // Calculate my attendance stats
+  const pastAttCount = pastEvents.filter(e => {
+    const att = allAttendances[e.id]?.[user.uid];
+    return att?.status === 'Vull anar-hi';
+  }).length;
+  const attendanceRate = pastEvents.length > 0 ? Math.round((pastAttCount / pastEvents.length) * 100) : 100;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 pb-24 md:pb-8">
-      <div className="flex-1">
-        <div className="flex flex-col sm:flex-row border-b border-[#d44211]/10 mb-6 gap-4 sm:gap-8 justify-between items-start sm:items-center">
-          <div className="flex gap-6 sm:gap-8 w-full sm:w-auto">
+    <div className="space-y-8">
+      
+      {/* Top Filter Buttons (Captura 4) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 bg-stone-100/80 p-1 rounded-2xl border border-stone-200/60 w-fit">
+          <button
+            onClick={() => setEventTypeFilter('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              eventTypeFilter === 'all' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            Tots els Actes
+          </button>
+          <button
+            onClick={() => setEventTypeFilter('actuacions')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              eventTypeFilter === 'actuacions' ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20' : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            Actuacions
+          </button>
+          <button
+            onClick={() => setEventTypeFilter('assajos')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              eventTypeFilter === 'assajos' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            Assajos
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Upcoming vs Past Toggle */}
+          <div className="flex items-center gap-1 bg-white border border-stone-200 p-1 rounded-2xl">
             <button 
               onClick={() => setActiveTab('upcoming')}
-              className={`flex-1 sm:flex-none flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'upcoming' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeTab === 'upcoming' ? 'bg-stone-100 text-stone-900' : 'text-stone-400 hover:text-stone-700'
+              }`}
             >
-              <span className="text-sm font-black tracking-widest uppercase">Pròxims</span>
+              Pròxims
             </button>
             <button 
               onClick={() => setActiveTab('past')}
-              className={`flex-1 sm:flex-none flex flex-col items-center justify-center border-b-[3px] pb-3 pt-2 transition-colors ${activeTab === 'past' ? 'border-[#d44211] text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeTab === 'past' ? 'bg-stone-100 text-stone-900' : 'text-stone-400 hover:text-stone-700'
+              }`}
             >
-              <span className="text-sm font-black tracking-widest uppercase">Passats</span>
+              Passats
             </button>
           </div>
+
           {user.role === 'admin' && (
             <button 
               onClick={() => setIsAdding(true)}
-              className="w-full sm:w-auto px-4 py-3 bg-[#d44211] text-white font-black uppercase tracking-widest rounded-xl hover:bg-[#d44211]/90 transition-all flex items-center justify-center gap-2 text-[10px] mb-2 shadow-lg shadow-[#d44211]/20"
+              className="px-4 py-2.5 bg-[#c2410c] text-white font-bold rounded-2xl hover:bg-[#9a3412] transition-all flex items-center gap-1.5 text-xs shadow-sm shadow-[#c2410c]/20"
             >
-              <Plus size={14} /> Nou Esdeveniment
+              <Plus size={16} /> Nou Esdeveniment
             </button>
           )}
         </div>
+      </div>
 
-        <h1 className="text-2xl font-bold mb-6 text-slate-900">
-          {activeTab === 'upcoming' ? 'Pròximes actuacions i assajos' : 'Esdeveniments passats'}
-        </h1>
+      {/* Main Grid: Left Event Cards + Right Widgets (Captures 3 i 4) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Left Column: Event Cards */}
+        <div className="lg:col-span-8 space-y-6">
+          <div>
+            <h2 className="text-2xl font-black text-stone-900 tracking-tight">Pròximes Actuacions</h2>
+            <p className="text-xs text-stone-500 font-medium mt-0.5">
+              Confirma la teua disponibilitat per a quadrar les plantilles de la colla.
+            </p>
+          </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d44211]"></div>
-          </div>
-        ) : displayedEvents.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 bg-white rounded-xl border border-slate-200">
-            {activeTab === 'upcoming' ? 'No hi ha esdeveniments programats.' : 'No hi ha esdeveniments passats.'}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {displayedEvents.map(event => {
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#c2410c]/20 border-t-[#c2410c]"></div>
+            </div>
+          ) : displayedEvents.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-stone-200/70 p-8 space-y-2">
+              <CalendarIcon size={36} className="mx-auto text-stone-300" />
+              <p className="font-bold text-stone-700">No hi ha esdeveniments en aquesta secció.</p>
+              <p className="text-xs text-stone-400">Canvia els filtres o revisa la pestanya d'esdeveniments passats.</p>
+            </div>
+          ) : (
+            displayedEvents.map(event => {
               const eventAtts = allAttendances[event.id] || {};
               const myAttendance = eventAtts[user.uid]?.status;
               const amIConvocat = eventAtts[user.uid]?.convocat;
               const confirmedCount = users.filter(u => eventAtts[u.uid]?.status === 'Vull anar-hi').length;
               const declinedCount = users.filter(u => eventAtts[u.uid]?.status === 'No puc').length;
-              const colors = getTypeColors(event.type);
               
+              const totalSlots = (event.slots_dolcaina || 0) + (event.slots_tabal || 0);
+              const isFull = totalSlots > 0 && confirmedCount >= totalSlots;
+              const remainingSlots = totalSlots > 0 ? totalSlots - confirmedCount : 0;
+
               return (
-                <div key={event.id} className="flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-lg hover:border-slate-200 transition-all group">
-                  <div 
-                    className="w-full md:w-32 h-24 md:h-auto flex flex-col items-center justify-center p-4 text-center border-b md:border-b-0 md:border-r"
-                    style={{ backgroundColor: colors.bg, borderColor: colors.border }}
-                  >
-                    <div className="font-black text-2xl leading-none" style={{ color: colors.dark }}>{new Date(event.date).getDate()}</div>
-                    <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-60" style={{ color: colors.dark }}>{new Date(event.date).toLocaleDateString('ca-ES', { month: 'short' }).toUpperCase()}</div>
+                <div 
+                  key={event.id} 
+                  className="bg-white rounded-3xl overflow-hidden border border-stone-200/80 shadow-sm card-warm card-warm-hover flex flex-col"
+                >
+                  {/* Photo Header with Image (Captura 3) */}
+                  <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-stone-900">
+                    <img 
+                      src={getEventImage(event)} 
+                      alt={event.title}
+                      className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/20 to-transparent"></div>
+
+                    {/* Date Badge Float Bottom-Left */}
+                    <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                      <span className="px-3.5 py-1.5 bg-black/60 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider rounded-xl border border-white/20 shadow-sm">
+                        {formatDate(event.date)}
+                      </span>
+                    </div>
+
+                    {/* Status Badge Float Top-Right */}
+                    <div className="absolute top-4 right-4">
+                      {event.is_cancelled ? (
+                        <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-md">
+                          🚫 Cancel·lat
+                        </span>
+                      ) : myAttendance === 'Vull anar-hi' ? (
+                        <span className="px-3.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-sm">
+                          <CheckCircle size={12} className="text-emerald-600" /> {amIConvocat ? 'Convocat' : 'Inscrit'}
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 bg-stone-100/90 text-stone-700 text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm">
+                          Pendent
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 p-5 flex flex-col justify-between">
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                      <div className="flex-1 min-w-0 w-full space-y-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span 
-                            className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: colors.bg, color: colors.dark, border: `1px solid ${colors.border}` }}
-                          >
-                            {event.type}
-                          </span>
-                          {event.is_cancelled && (
-                            <span className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1.5 shadow-lg shadow-red-600/20 animate-pulse">
-                              🚫 Cancel·lat
-                            </span>
-                          )}
-                          {event.ispublished && amIConvocat && myAttendance !== 'No puc' && !event.is_cancelled && (
-                            <span className="px-3 py-1 bg-[#d44211] text-white text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1 shadow-sm shadow-[#d44211]/20">
-                              <CheckCircle size={10} /> Convocat
-                            </span>
-                          )}
-                          {!event.ispublished && myAttendance === 'Vull anar-hi' && !event.is_cancelled && (
-                            <span className="px-3 py-1 bg-green-100 text-green-700 text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1">
-                              <CheckCircle size={10} /> Inscrit
-                            </span>
-                          )}
-                          {myAttendance === 'No puc' && !event.is_cancelled && (
-                            <span className="px-3 py-1 bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest rounded-full">
-                              No assisteix
-                            </span>
-                          )}
-                          {!myAttendance && !event.is_cancelled && (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest rounded-full">
-                              Pendent
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-lg font-black text-slate-900 leading-tight mb-2 group-hover:text-[#d44211] transition-colors truncate">{event.title}</h3>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                          <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs">
-                            <CalendarIcon size={14} className="text-[#d44211]" />
-                            <span>{formatDate(event.date)}</span>
-                          </div>
-                          {event.location && (
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <a 
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-1.5 text-slate-500 font-bold text-[11px] sm:text-xs hover:text-[#d44211] transition-colors truncate group/cardloc"
-                              >
-                                <MapPin size={14} className="text-[#d44211] shrink-0" />
-                                <span className="truncate group-hover/cardloc:underline">{event.location}</span>
-                              </a>
-                            </div>
-                          )}
-                        </div>
+
+                  {/* Card Body */}
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="tag-badge bg-orange-50 text-[#c2410c] border border-orange-100">
+                          {event.type}
+                        </span>
                         {event.notes && (
-                          <p className="text-xs text-slate-600 mt-3 italic line-clamp-2">{event.notes}</p>
+                          <span className="text-[10px] text-stone-400 font-medium truncate max-w-xs">
+                            {event.notes}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-black text-stone-900 tracking-tight">
+                        {event.title}
+                      </h3>
+                      {event.location && (
+                        <div className="flex items-center gap-1.5 text-xs text-stone-500 font-semibold mt-1">
+                          <MapPin size={14} className="text-[#c2410c]" />
+                          <span>{event.location}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Plantilla Requirements Info (Captura 4) */}
+                    <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200/60 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 text-stone-700 font-bold">
+                        <Users size={15} className="text-[#c2410c]" />
+                        <span>
+                          Plantilla: {event.slots_dolcaina !== null && event.slots_dolcaina !== undefined ? `${event.slots_dolcaina} dolçaines, ${event.slots_tabal || 0} tabals` : 'Tota la colla'}
+                        </span>
+                      </div>
+                      {event.slots_dolcaina ? (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                          isFull 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {isFull ? 'Complet' : `Falten ${remainingSlots}`}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-stone-200/70 text-stone-700">
+                          General
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action Button & Admin Tools */}
+                    <div className="pt-2 flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        {!event.is_cancelled ? (
+                          myAttendance === 'Vull anar-hi' ? (
+                            <button
+                              onClick={() => handleAttendance(event.id, 'No puc')}
+                              className="w-full py-3.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-black uppercase tracking-wider rounded-2xl transition-all"
+                            >
+                              Modifica assistència
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAttendance(event.id, 'Vull anar-hi')}
+                              className="w-full py-3.5 bg-[#c2410c] hover:bg-[#9a3412] text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-[#c2410c]/20"
+                            >
+                              Vull anar-hi
+                            </button>
+                          )
+                        ) : (
+                          <span className="block text-center text-xs font-bold text-red-600 py-2">
+                            Actuació cancel·lada
+                          </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-100 pt-3 sm:pt-0 mt-2 sm:mt-0">
-                        {user.role === 'admin' && (
-                          <div className="flex items-center gap-1 pr-2 mr-2 border-r border-slate-100">
-                            {!event.is_cancelled && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleCancelEvent(event.id); }}
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                title="Cancel·lar"
-                              >
-                                <X size={18} className="stroke-[3]" />
-                              </button>
-                            )}
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleOpenEdit(event); }}
-                              className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                              title="Editar"
-                            >
-                              <Pencil size={18} />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event.id); }}
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        )}
-                        
+                      {user.role === 'admin' && (
                         <div className="flex items-center gap-1">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleCopyLink(event); }}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                            title="Copiar enllaç"
+                          <button
+                            onClick={() => handleOpenEdit(event)}
+                            className="p-3 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-all"
+                            title="Editar"
                           >
-                            <Link2 size={18} />
+                            <Pencil size={16} />
                           </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleShareWhatsApp(event); }}
-                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all"
-                            title="WhatsApp"
+                          <button
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="p-3 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            title="Eliminar"
                           >
-                            <svg size={18} viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.438 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            <Trash2 size={16} />
                           </button>
                         </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                      <div className="flex gap-4 text-sm">
-                        <div className="flex items-center gap-1 text-green-600 font-medium">
-                          <CheckCircle size={16} /> {confirmedCount} inscrits
-                        </div>
-                        <div className="flex items-center gap-1 text-red-500 font-medium">
-                          <X size={16} /> {declinedCount} no vénen
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button 
-                          onClick={() => setViewingEvent(event)} 
-                          className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-lg text-sm hover:bg-slate-50 transition-colors"
-                        >
-                          Veure Detalls
-                        </button>
-                        
-                        {/* Only allow editing attendance if it's not a published Actuació (unless admin) AND not cancelled */}
-                        {!(event.type === 'Actuació' && event.ispublished && user.role !== 'admin') && !event.is_cancelled ? (
-                          myAttendance === 'Vull anar-hi' ? (
-                            <button onClick={() => handleAttendance(event.id, 'No puc')} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg text-sm hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
-                              Cancel·lar assistència
-                            </button>
-                          ) : (
-                            <>
-                              <button onClick={() => handleAttendance(event.id, 'No puc')} className="px-4 py-2 border border-slate-200 text-slate-600 font-bold rounded-lg text-sm hover:bg-red-50 hover:text-red-700 transition-colors">
-                                No puc
-                              </button>
-                              <button onClick={() => handleAttendance(event.id, 'Vull anar-hi')} className="px-6 py-2 bg-[#d44211] text-white font-bold rounded-lg text-sm hover:bg-[#d44211]/90 transition-colors shadow-sm shadow-[#d44211]/20">
-                                Vull anar-hi
-                              </button>
-                            </>
-                          )
-                        ) : event.is_cancelled ? (
-                          <span className="text-xs font-bold text-red-500 bg-red-50 px-3 py-2 rounded-lg border border-red-100">
-                            Esdeveniment cancel·lat
-                          </span>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                            Inscripció tancada
-                          </span>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
               );
-            })}
+            })
+          )}
+        </div>
+
+        {/* Right Column: Widgets (Captura 4) */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* Widget 1: Pròxim Assaig General Obligatori */}
+          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#c2410c]">Pròxim Assaig General</span>
+              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/60 text-[9px] font-black uppercase rounded-full">
+                Obligatori
+              </span>
+            </div>
+            <div>
+              <h4 className="text-base font-black text-stone-900 tracking-tight">
+                {nextRehearsal ? nextRehearsal.title : 'Preparació Repertori Setmanal'}
+              </h4>
+              <p className="text-xs text-stone-500 font-medium mt-1 leading-relaxed">
+                Repàs de les peces clau: Muixeranga, Processó d'Algemesí i pasdobles de carrer.
+              </p>
+            </div>
+            <div className="space-y-1.5 text-xs font-semibold text-stone-600 pt-1">
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-[#c2410c]" />
+                <span>{nextRehearsal ? formatDate(nextRehearsal.date) : 'Dijous · 18:30h - 21:30h'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin size={14} className="text-[#c2410c]" />
+                <span>{nextRehearsal?.location || 'Local de la Colla, Carrer Major'}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (nextRehearsal) handleAttendance(nextRehearsal.id, 'Vull anar-hi');
+                else alert("Assistència a l'assaig registrada.");
+              }}
+              className="w-full py-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={14} className="text-emerald-600" /> Confirmar presència a l'assaig
+            </button>
           </div>
-        )}
+
+          {/* Widget 2: El meu resum d'actes */}
+          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">El meu resum d'actes</span>
+              </div>
+              <span className="px-2.5 py-0.5 bg-orange-50 text-orange-800 text-[9px] font-black uppercase rounded-full">
+                Temporada 2026
+              </span>
+            </div>
+
+            <div className="p-4 bg-stone-50/80 border border-stone-200/60 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Taxa d'assistència</p>
+                  <p className="text-3xl font-black text-stone-900 tracking-tight">{attendanceRate}%</p>
+                </div>
+                <div className="w-14 h-14 rounded-full border-4 border-[#c2410c] flex items-center justify-center font-black text-xs text-stone-800">
+                  {pastAttCount}/{pastEvents.length || 1}
+                </div>
+              </div>
+              <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+                <div className="h-full bg-[#c2410c] rounded-full" style={{ width: `${attendanceRate}%` }}></div>
+              </div>
+              <p className="text-[11px] text-stone-500 font-medium leading-relaxed">
+                {attendanceRate >= 50 
+                  ? 'Molt bona participació! Complixes el mínim per a les festes majors.' 
+                  : 'Recorda confirmar assistències per a mantenir una bona rotació a la colla.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Widget 3: Uniformitat i Material */}
+          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-3">
+            <div className="flex items-center gap-2 text-stone-900 font-black text-xs uppercase tracking-wider">
+              <span className="w-6 h-6 rounded-lg bg-[#c2410c]/10 text-[#c2410c] flex items-center justify-center">
+                <Music size={13} />
+              </span>
+              <span>Uniformitat i Material</span>
+            </div>
+            <ul className="space-y-2 text-xs font-semibold text-stone-600 pt-1">
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                <span>Camisa oficial verda de la Colla</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                <span>Pantaló negre i faixa roja</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                <span>Atril petit i canyes de recanvi</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                <span>Partitures de carrer plastificades</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
       </div>
+
 
       {/* Event Details Modal */}
       {viewingEvent && (

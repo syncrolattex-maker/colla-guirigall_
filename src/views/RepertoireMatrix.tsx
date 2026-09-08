@@ -427,7 +427,7 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
               </thead>
 
               <tbody>
-                {Object.entries(musiciansByInstrument).map(([instrument, instMusicians]) => (
+                {(Object.entries(musiciansByInstrument) as [string, Musician[]][]).map(([instrument, instMusicians]) => (
                   <React.Fragment key={instrument}>
                     {/* ── Group header ── */}
                     <tr>

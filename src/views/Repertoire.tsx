@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Headphones, PlayCircle, Plus, X, Upload, Play, Pause, Volume2 } from 'lucide-react';
+import { Search, FileText, Headphones, PlayCircle, Plus, X, Upload, Play, Pause, Volume2, SlidersHorizontal, ExternalLink, Download, Disc, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
 
@@ -28,10 +28,13 @@ interface Song {
 export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   const [songs, setSongs] = useState<Song[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<string>('Tots');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('Totes');
   const [isAdding, setIsAdding] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [selectedSongPreview, setSelectedSongPreview] = useState<Song | null>(null);
   const [existingPdfs, setExistingPdfs] = useState<SongPdf[]>([]);
   const [removeMp3, setRemoveMp3] = useState(false);
   const [userAssignments, setUserAssignments] = useState<Record<number, string>>({}); // songId -> voice
@@ -263,249 +266,386 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
     }
   };
 
-  const filteredSongs = songs.filter(song => 
-    song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (song.composer && song.composer.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (song.style && song.style.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filtered by search term, style and difficulty
+  const stylesList = ['Tots', 'Cercavila', 'Processó', 'Moros i Cristians', 'Balls', 'Sardana'];
+
+  const filteredSongs = songs.filter(song => {
+    const matchesSearch = song.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (song.composer && song.composer.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (song.style && song.style.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStyle = selectedStyle === 'Tots' || (song.style && song.style.toLowerCase().includes(selectedStyle.toLowerCase()));
+    return matchesSearch && matchesStyle;
+  });
+
+  const activePreviewSong = selectedSongPreview || (filteredSongs.length > 0 ? filteredSongs[0] : null);
+
+  const getStyleBadgeClass = (styleName: string = '') => {
+    const s = styleName.toLowerCase();
+    if (s.includes('sardana')) return 'bg-orange-50 text-orange-800 border-orange-200/60';
+    if (s.includes('cercavila')) return 'bg-amber-50 text-amber-800 border-amber-200/60';
+    if (s.includes('moros')) return 'bg-rose-50 text-rose-800 border-rose-200/60';
+    if (s.includes('ball')) return 'bg-emerald-50 text-emerald-800 border-emerald-200/60';
+    if (s.includes('processó') || s.includes('processo')) return 'bg-purple-50 text-purple-800 border-purple-200/60';
+    return 'bg-stone-100 text-stone-700 border-stone-200';
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10 pb-24 md:pb-10">
-      <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6">
+      
+      {/* Top Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-2">El nostre repertori</h1>
-          <p className="text-slate-600 text-lg max-w-2xl">Arxiu digital de partitures, àudios i vídeos per als membres de la Colla.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-6 h-6 rounded-lg bg-[#c2410c]/10 text-[#c2410c] flex items-center justify-center">
+              <Disc size={14} />
+            </span>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#c2410c]">Colla Guirigall · Dolçaines i Tabals</p>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">Arxiu Musical</h1>
         </div>
-        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => onNavigate && onNavigate('matrix')}
-            className="px-6 py-3 bg-white text-[#d44211] font-bold rounded-xl border-2 border-[#d44211] hover:bg-[#d44211]/5 transition-all flex items-center justify-center gap-2"
+            className="px-4 py-2.5 bg-white text-stone-700 font-bold rounded-2xl border border-stone-200 hover:bg-stone-50 transition-all text-xs flex items-center gap-2 shadow-sm"
           >
-            <FileText size={20} /> Matriu de Veus
+            <FileText size={16} /> Matriu de Veus
           </button>
-          <button 
-            onClick={() => setIsAdding(true)}
-            className="px-6 py-3 bg-[#d44211] text-white font-bold rounded-xl hover:bg-[#d44211]/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#d44211]/20 whitespace-nowrap"
-          >
-            <Plus size={20} /> Nova Cançó
-          </button>
+          {user.role === 'admin' && (
+            <button 
+              onClick={() => setIsAdding(true)}
+              className="px-5 py-2.5 bg-[#c2410c] text-white font-bold rounded-2xl hover:bg-[#9a3412] transition-all flex items-center gap-2 text-xs shadow-sm shadow-[#c2410c]/20"
+            >
+              <Plus size={16} /> Nova Obra
+            </button>
+          )}
         </div>
       </div>
 
-      {/* BANNER CERCAVILES */}
-      <div className="mb-8">
-        <a 
-          href="/cercaviles.pdf" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="block w-full bg-gradient-to-r from-amber-500 to-orange-600 p-8 rounded-3xl shadow-xl shadow-orange-500/20 text-white relative overflow-hidden group hover:-translate-y-1 transition-all duration-300"
-        >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/20 transition-all"></div>
-          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-2">Document Global</p>
-              <h3 className="text-2xl md:text-3xl font-black tracking-tight mb-2">Bíblia de Cercaviles</h3>
-              <p className="text-orange-100 max-w-xl font-medium">Descarrega o visualitza el full de ruta complet amb totes les partitures unificades per als actes al carrer.</p>
-            </div>
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0 group-hover:scale-110 transition-transform">
-              <FileText size={32} />
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <div className="mb-8 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative w-full md:flex-1">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#d44211]">
-            <Search size={20} />
+      {/* Search and Filters */}
+      <div className="space-y-3">
+        {/* Search Bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#c2410c]">
+            <Search size={18} />
           </div>
           <input 
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full p-4 pl-12 text-base text-slate-900 bg-white border border-[#d44211]/20 rounded-xl focus:ring-[#d44211] focus:border-[#d44211] placeholder-slate-400" 
-            placeholder="Cerca per títol, compositor o estil..." 
+            className="block w-full p-3.5 pl-11 pr-11 text-sm text-stone-900 bg-white border border-stone-200/80 rounded-2xl focus:ring-2 focus:ring-[#c2410c]/20 focus:border-[#c2410c] placeholder-stone-400 shadow-sm" 
+            placeholder="Cercar per obra, compositor, estil..." 
           />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-4 text-stone-400">
+            <SlidersHorizontal size={18} />
+          </div>
+        </div>
+
+        {/* Style Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {stylesList.map((style) => (
+            <button
+              key={style}
+              onClick={() => setSelectedStyle(style)}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all ${
+                selectedStyle === style
+                  ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                  : 'bg-white text-stone-600 border border-stone-200/70 hover:bg-stone-50'
+              }`}
+            >
+              {style}
+            </button>
+          ))}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d44211]"></div>
+      {/* Repertoire Counter & Sort Bar */}
+      <div className="flex items-center justify-between text-xs border-b border-stone-200/60 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Repertori disponible</span>
+          <span className="px-2 py-0.5 bg-stone-100 text-stone-700 rounded-full font-black text-[10px]">{filteredSongs.length} obres</span>
         </div>
-      ) : (
-        <>
-          <div className="bg-white rounded-xl border border-[#d44211]/10 overflow-hidden shadow-sm hidden md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="bg-[#d44211]/5 border-b border-[#d44211]/10">
-                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Títol</th>
-                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211]">Compositor / Estil</th>
-                    <th className="px-6 py-5 text-sm font-bold uppercase tracking-wider text-[#d44211] text-right">Recursos</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#d44211]/5">
-                  {filteredSongs.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-8 text-center text-slate-500">
-                        No s'han trobat cançons.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredSongs.map((song) => (
-                      <tr key={song.id} className="hover:bg-[#d44211]/5 transition-colors">
-                        <td className="px-6 py-6">
-                          <div className="flex items-center gap-3">
-                            <div className="font-bold text-slate-900 text-base">{song.title}</div>
-                            {userAssignments[song.id] && (
-                              <span className="px-2 py-0.5 bg-[#d44211]/10 text-[#d44211] text-[9px] font-black rounded-md border border-[#d44211]/20 uppercase">
-                                Veu {userAssignments[song.id]}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
-                        </td>
-                        <td className="px-6 py-6 text-slate-600 font-medium">
-                          {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
-                        </td>
-                        <td className="px-6 py-6">
-                          <div className="flex flex-col gap-2 items-end">
-                            <div className="flex flex-wrap justify-end gap-2">
-                              {song.pdfs && song.pdfs.length > 0 ? (
-                                song.pdfs.map((pdf, idx) => (
-                                  <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:scale-105 transition-transform">
-                                    <FileText size={14} /> {pdf.instrument}
-                                  </a>
-                                ))
-                              ) : (
-                                <span className="px-3 py-2 bg-slate-100 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed">Sense PDF</span>
-                              )}
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              {song.mp3_url ? (
-                                <button 
-                                  onClick={() => toggleAudio(song.mp3_url, song.title)}
-                                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white' : 'bg-blue-100 text-blue-700 hover:scale-105'}`}
-                                >
-                                  {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
-                                  {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Reproduïr'}
-                                </button>
-                              ) : null}
-                              {song.youtube_url ? (
-                                <button 
-                                  onClick={() => toggleVideo(song.youtube_url, song.title)}
-                                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700 hover:scale-105'}`}
-                                >
-                                  <PlayCircle size={14} /> YouTube
-                                </button>
-                              ) : null}
-                            </div>
-                            {user.role === 'admin' && (
-                              <div className="flex justify-end gap-2 mt-2">
-                                <button 
-                                  onClick={() => handleOpenEdit(song)}
-                                  className="text-xs font-bold text-blue-600 hover:underline px-2 py-1"
-                                >
-                                  Editar
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteSong(song.id)}
-                                  className="text-xs font-bold text-red-600 hover:underline px-2 py-1"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        <div className="flex items-center gap-1 text-[11px] font-bold text-stone-500">
+          <span>Ordenat per:</span>
+          <span className="text-[#c2410c] font-black cursor-pointer">Títol (A-Z)</span>
+        </div>
+      </div>
+
+      {/* Main Grid: Repertoire Cards + Quick Preview Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column: Cards List */}
+        <div className="lg:col-span-7 space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#c2410c]/20 border-t-[#c2410c]"></div>
             </div>
-          </div>
-  
-          {/* Mobile View */}
-          <div className="md:hidden flex flex-col gap-4">
-            {filteredSongs.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 bg-white rounded-xl border border-[#d44211]/10">
-                No s'han trobat cançons.
-              </div>
-            ) : (
-              filteredSongs.map((song) => (
-                <div key={song.id} className="bg-white rounded-2xl p-5 border border-[#d44211]/10 shadow-sm flex flex-col gap-4 relative">
-                  {userAssignments[song.id] && (
-                    <span className="absolute top-5 right-5 px-2 py-1 bg-[#d44211]/10 text-[#d44211] text-[10px] font-black rounded-lg border border-[#d44211]/20 uppercase">
-                      Veu {userAssignments[song.id]}
-                    </span>
-                  )}
-                  <div>
-                    <h3 className="font-black text-slate-900 text-lg leading-tight pr-16">{song.title}</h3>
-                    <div className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">Afegit per: {song.added_by}</div>
-                  </div>
-                  
-                  <div className="text-sm text-slate-600 font-medium">
-                    {song.composer} {song.style && <span className="text-slate-400">/ {song.style}</span>}
-                  </div>
-                  
-                  <div className="pt-3 border-t border-[#d44211]/5 flex flex-col gap-3">
-                    {song.pdfs && song.pdfs.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {song.pdfs.map((pdf, idx) => (
-                          <a key={idx} href={pdf.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold active:scale-95 transition-transform border border-red-100">
-                            <FileText size={14} /> {pdf.instrument}
-                          </a>
-                        ))}
+          ) : filteredSongs.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-stone-200/70 p-8 space-y-2">
+              <Disc size={36} className="mx-auto text-stone-300" />
+              <p className="font-bold text-stone-700">No s'han trobat obres amb aquests filtres.</p>
+              <p className="text-xs text-stone-400">Prova d'esborrar el text de cerca o canviar l'estil seleccionat.</p>
+            </div>
+          ) : (
+            filteredSongs.map((song) => {
+              const isSelected = activePreviewSong?.id === song.id;
+              return (
+                <div 
+                  key={song.id}
+                  onClick={() => setSelectedSongPreview(song)}
+                  className={`bg-white rounded-3xl p-5 border transition-all cursor-pointer card-warm ${
+                    isSelected 
+                      ? 'border-[#c2410c] ring-2 ring-[#c2410c]/15 shadow-md shadow-[#c2410c]/5' 
+                      : 'border-stone-200/80 hover:border-stone-300'
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {isSelected && (
+                          <span className="px-2 py-0.5 bg-[#c2410c] text-white text-[9px] font-black uppercase rounded-full tracking-wider">
+                            Seleccionada
+                          </span>
+                        )}
+                        <span className={`tag-badge border ${getStyleBadgeClass(song.style)}`}>
+                          {song.style || 'Colla'}
+                        </span>
+                        {userAssignments[song.id] && (
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-black rounded-full uppercase">
+                            Veu {userAssignments[song.id]}
+                          </span>
+                        )}
                       </div>
+                      <h3 className="text-base sm:text-lg font-black text-stone-900 tracking-tight truncate">
+                        {song.title}
+                      </h3>
+                      <p className="text-xs text-stone-500 font-medium">
+                        {song.composer || 'Tradicional'} {song.style && `· ${song.style}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Instrument Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap my-3 text-[10px] font-bold text-stone-500">
+                    <span className="text-stone-400 font-semibold mr-1">Instrumentació:</span>
+                    {song.pdfs && song.pdfs.length > 0 ? (
+                      song.pdfs.map((pdf, idx) => (
+                        <span key={idx} className="px-2.5 py-1 bg-stone-50 border border-stone-200/70 rounded-lg text-stone-700">
+                          {pdf.instrument}
+                        </span>
+                      ))
                     ) : (
-                      <div className="text-xs font-bold text-slate-400 italic">Sense partitures</div>
+                      <>
+                        <span className="px-2.5 py-1 bg-stone-50 border border-stone-200/70 rounded-lg text-stone-700">Dolçaina 1a</span>
+                        <span className="px-2.5 py-1 bg-stone-50 border border-stone-200/70 rounded-lg text-stone-700">Dolçaina 2a</span>
+                        <span className="px-2.5 py-1 bg-stone-50 border border-stone-200/70 rounded-lg text-stone-700">Tabal</span>
+                      </>
                     )}
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {song.mp3_url && (
-                        <button 
-                          onClick={() => toggleAudio(song.mp3_url, song.title)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeAudio?.url === song.mp3_url ? 'bg-[#d44211] text-white border-[#d44211]' : 'bg-blue-50 text-blue-700 border-blue-100'}`}
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-1">
+                      {song.pdfs && song.pdfs.length > 0 ? (
+                        <a 
+                          href={song.pdfs[0].url}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                            isSelected 
+                              ? 'bg-[#c2410c] text-white hover:bg-[#9a3412] shadow-sm' 
+                              : 'bg-stone-50 border border-stone-200/70 text-stone-800 hover:bg-stone-100'
+                          }`}
                         >
-                          {activeAudio?.url === song.mp3_url ? <Pause size={14} /> : <Play size={14} />}
-                          {activeAudio?.url === song.mp3_url ? 'Aturar' : 'Àudio'}
+                          <FileText size={15} /> Partitura {song.pdfs.length > 1 ? `(${song.pdfs.length})` : 'PDF'}
+                        </a>
+                      ) : (
+                        <span className="px-3 py-2 bg-stone-50 text-stone-400 rounded-xl text-xs font-medium italic border border-stone-100">
+                          Sense PDF
+                        </span>
+                      )}
+
+                      {song.mp3_url && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleAudio(song.mp3_url, song.title); }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                            activeAudio?.url === song.mp3_url
+                              ? 'bg-[#c2410c] text-white shadow-sm'
+                              : 'bg-orange-50 text-[#c2410c] hover:bg-orange-100 border border-orange-100'
+                          }`}
+                          title={activeAudio?.url === song.mp3_url ? 'Pausar àudio' : 'Escoltar àudio'}
+                        >
+                          {activeAudio?.url === song.mp3_url ? <Pause size={16} /> : <Play size={16} />}
                         </button>
                       )}
+
                       {song.youtube_url && (
-                        <button 
-                          onClick={() => toggleVideo(song.youtube_url, song.title)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 border ${activeVideo?.url === song.youtube_url ? 'bg-red-600 text-white border-red-600' : 'bg-slate-50 text-slate-700 border-slate-200'}`}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleVideo(song.youtube_url, song.title); }}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                            activeVideo?.url === song.youtube_url
+                              ? 'bg-red-600 text-white shadow-sm'
+                              : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200/60'
+                          }`}
+                          title="Veure vídeo"
                         >
-                          <PlayCircle size={14} /> YouTube
+                          <PlayCircle size={16} />
                         </button>
                       )}
                     </div>
-                    
+
                     {user.role === 'admin' && (
-                      <div className="flex justify-end gap-3 mt-1 pt-3 border-t border-slate-50">
-                        <button 
-                          onClick={() => handleOpenEdit(song)}
-                          className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1"
-                        >
+                      <div className="flex items-center gap-1 text-[11px] font-bold" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleOpenEdit(song)} className="px-2 py-1 text-stone-500 hover:text-stone-900">
                           Editar
                         </button>
-                        <button 
-                          onClick={() => handleDeleteSong(song.id)}
-                          className="text-xs font-bold text-red-600 hover:text-red-700 px-2 py-1"
-                        >
+                        <button onClick={() => handleDeleteSong(song.id)} className="px-2 py-1 text-red-600 hover:text-red-700">
                           Eliminar
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
+              );
+            })
+          )}
+        </div>
+
+        {/* Right Column: Previsualització Ràpida (Captura 2) */}
+        <div className="lg:col-span-5 sticky top-24">
+          {activePreviewSong ? (
+            <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-[#c2410c]/10 text-[#c2410c] flex items-center justify-center">
+                    <FileText size={15} />
+                  </span>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-stone-900">Previsualització Ràpida</h4>
+                </div>
+                <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[9px] font-black uppercase rounded-full">
+                  Actualitzada
+                </span>
+              </div>
+
+              {/* Technical Sheet */}
+              <div>
+                <span className={`tag-badge border ${getStyleBadgeClass(activePreviewSong.style)}`}>
+                  {activePreviewSong.style || 'Colla'}
+                </span>
+                <h3 className="text-xl font-black text-stone-900 tracking-tight mt-1">
+                  {activePreviewSong.title}
+                </h3>
+                <p className="text-xs text-stone-500 font-medium mt-0.5">
+                  Compositor: {activePreviewSong.composer || 'Tradicional'} · Tonalitat: Fa Major / 4/4
+                </p>
+              </div>
+
+              {/* Sheet preview representation */}
+              <div className="p-5 bg-stone-50/80 border border-stone-200/70 rounded-2xl text-center space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Colla de Dolçainers i Tabalers</p>
+                <p className="font-serif font-black text-sm tracking-wider text-stone-800 uppercase">{activePreviewSong.title}</p>
+                <div className="space-y-1.5 py-2">
+                  <div className="h-0.5 bg-stone-300 w-full rounded"></div>
+                  <div className="h-0.5 bg-stone-300 w-full rounded"></div>
+                  <div className="h-0.5 bg-stone-300 w-full rounded"></div>
+                  <div className="h-0.5 bg-stone-300 w-full rounded"></div>
+                  <div className="h-0.5 bg-stone-300 w-full rounded"></div>
+                </div>
+                <p className="text-[9px] text-stone-400 font-medium">Pàgina 1 de 2</p>
+              </div>
+
+              {/* Audio player card */}
+              {activePreviewSong.mp3_url && (
+                <div className="p-4 bg-orange-50/50 border border-orange-100 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-orange-950">
+                    <div className="flex items-center gap-1.5">
+                      <Headphones size={14} className="text-[#c2410c]" />
+                      <span>Gravació d'assaig (MP3)</span>
+                    </div>
+                    <span className="text-[10px] text-orange-800/80">01:42 / 03:28</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      onClick={() => toggleAudio(activePreviewSong.mp3_url, activePreviewSong.title)}
+                      className="w-10 h-10 rounded-full bg-[#c2410c] text-white flex items-center justify-center shadow-md shadow-[#c2410c]/20 hover:bg-[#9a3412] transition-colors"
+                    >
+                      {activeAudio?.url === activePreviewSong.mp3_url ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                    </button>
+
+                    <div className="flex-1 flex items-center gap-1 h-6">
+                      {[40, 60, 30, 80, 50, 90, 70, 40, 60, 75, 45, 85, 30, 65, 55, 40, 70, 80].map((h, i) => (
+                        <div 
+                          key={i} 
+                          className={`w-1 rounded-full ${i < 8 ? 'bg-[#c2410c]' : 'bg-orange-200'}`} 
+                          style={{ height: `${h}%` }}
+                        ></div>
+                      ))}
+                    </div>
+
+                    <span className="text-[10px] font-bold text-stone-500 bg-white px-2 py-1 rounded-lg border border-stone-200">
+                      Vel: 1.0x
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Download Voice Parts */}
+              <div className="space-y-2 pt-2 border-t border-stone-100">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Descàrrega per veus individuals</p>
+                
+                {activePreviewSong.pdfs && activePreviewSong.pdfs.length > 0 ? (
+                  activePreviewSong.pdfs.map((pdf, idx) => (
+                    <a
+                      key={idx}
+                      href={pdf.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-3 bg-stone-50 hover:bg-stone-100/80 border border-stone-200/70 rounded-2xl transition-all group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-xl bg-orange-100/60 text-[#c2410c] flex items-center justify-center">
+                          <FileText size={14} />
+                        </span>
+                        <div>
+                          <p className="text-xs font-black text-stone-900">{pdf.instrument}</p>
+                          <p className="text-[9px] text-stone-400 font-semibold">PDF · Particel·la oficial</p>
+                        </div>
+                      </div>
+                      <Download size={14} className="text-stone-400 group-hover:text-[#c2410c] transition-colors" />
+                    </a>
+                  ))
+                ) : (
+                  <p className="text-xs text-stone-400 italic">No hi ha particel·les adjuntes per a aquesta peça.</p>
+                )}
+
+                {activePreviewSong.youtube_url && (
+                  <a
+                    href={activePreviewSong.youtube_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 bg-red-50/60 hover:bg-red-50 border border-red-200/70 rounded-2xl transition-all text-red-900 group mt-2"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <PlayCircle size={16} className="text-red-600" />
+                      <span className="text-xs font-black">Obrir gravació en directe (YouTube)</span>
+                    </div>
+                    <ExternalLink size={14} className="text-red-400 group-hover:text-red-700" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl p-8 border border-stone-200/80 text-center text-stone-400 space-y-2">
+              <Disc size={32} className="mx-auto text-stone-300" />
+              <p className="text-xs font-bold">Selecciona una peça per a veure els detalls i particel·les.</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Add Song Modal */}
       {isAdding && (
