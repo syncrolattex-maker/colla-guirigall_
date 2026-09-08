@@ -4,7 +4,7 @@ import {
   Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
 import Repertoire from './views/Repertoire';
@@ -35,6 +35,8 @@ export interface GlobalAlert {
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const currentAdminTab = searchParams.get('tab') || 'convocatories';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [updatingProfile, setUpdatingProfile] = useState(false);
@@ -311,7 +313,11 @@ export default function App() {
     if (location.pathname.startsWith('/calendari')) return 'Pròximes Actuacions';
     if (location.pathname.startsWith('/assajos')) return 'Assajos del Dijous';
     if (location.pathname.startsWith('/enquestes')) return 'Enquestes';
-    if (location.pathname.startsWith('/admin')) return 'Gestió de la Colla';
+    if (location.pathname.startsWith('/admin')) {
+      if (currentAdminTab === 'musics') return 'Gestió de Músics';
+      if (currentAdminTab === 'alertes') return 'Avís Global';
+      return 'Actes i Convocatòries';
+    }
     if (location.pathname.startsWith('/matriu')) return 'Matriu de Repertori';
     return 'Colla Guirigall';
   };
@@ -410,23 +416,63 @@ export default function App() {
               <p className="px-3 text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Administració</p>
               
               <button
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate('/admin?tab=convocatories')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  location.pathname.startsWith('/admin') ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20' : 'text-stone-600 hover:bg-stone-100/80'
+                  location.pathname === '/admin' && currentAdminTab === 'convocatories'
+                    ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                    : 'text-stone-600 hover:bg-stone-100/80'
+                }`}
+              >
+                <Calendar size={18} />
+                <span>Actes i Convocatòries</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/admin?tab=musics')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  location.pathname === '/admin' && currentAdminTab === 'musics'
+                    ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                    : 'text-stone-600 hover:bg-stone-100/80'
                 }`}
               >
                 <Users size={18} />
-                <span>Actes i Convocatòries</span>
+                <span>Gestió de Músics</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/admin?tab=alertes')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  location.pathname === '/admin' && currentAdminTab === 'alertes'
+                    ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                    : 'text-stone-600 hover:bg-stone-100/80'
+                }`}
+              >
+                <Bell size={18} />
+                <span>Avís Global</span>
               </button>
 
               <button
                 onClick={() => navigate('/enquestes')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  location.pathname.startsWith('/enquestes') ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20' : 'text-stone-600 hover:bg-stone-100/80'
+                  location.pathname.startsWith('/enquestes')
+                    ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                    : 'text-stone-600 hover:bg-stone-100/80'
                 }`}
               >
                 <BarChart3 size={18} />
                 <span>Enquestes</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/matriu')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  location.pathname.startsWith('/matriu')
+                    ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+                    : 'text-stone-600 hover:bg-stone-100/80'
+                }`}
+              >
+                <Music size={18} />
+                <span>Matriu de Veus</span>
               </button>
             </div>
           )}
@@ -537,8 +583,8 @@ export default function App() {
 
         {/* Page Content */}
         <main className={`flex-1 w-full pb-24 lg:pb-12 ${
-          location.pathname.startsWith('/admin') || location.pathname.startsWith('/matriu')
-            ? '' // Admin and matrix handle their own layout
+          location.pathname.startsWith('/matriu')
+            ? 'p-4 sm:p-6 lg:p-8'
             : 'max-w-7xl mx-auto p-4 sm:p-6 lg:p-8'
         }`}>
           <Routes>

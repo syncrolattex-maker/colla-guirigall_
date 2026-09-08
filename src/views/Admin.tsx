@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils, ArrowLeft, Download, RotateCcw, Sparkles, MessageCircle, Clock, Search, MapPin } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
@@ -357,7 +358,16 @@ const MemberCard: React.FC<{
 
 // ─── Main Admin Component ─────────────────────────────────────────────────────
 export default function Admin({ user, setView, setSelectedEventId }: AdminProps) {
-  const [activeTab, setActiveTab] = useState<AdminTab>('convocatories');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as AdminTab | null;
+  const activeTab: AdminTab = (tabFromUrl && ['convocatories', 'musics', 'alertes', 'enquestes'].includes(tabFromUrl))
+    ? tabFromUrl
+    : 'convocatories';
+
+  const setActiveTab = (tab: AdminTab) => {
+    setSearchParams({ tab });
+  };
+
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [selectedEventId, setLocalSelectedEventId] = useState<number | null>(null);
   
@@ -867,60 +877,9 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-60px)]">
-      {/* ── SIDEBAR (desktop) ─────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-64 xl:w-72 bg-white border-r border-stone-200/80 min-h-full shrink-0">
-        <div className="p-6 border-b border-stone-100">
-          <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-3">
-            <Users size={20} strokeWidth={2.5} />
-          </div>
-          <h1 className="text-xl font-black text-stone-900 tracking-tight">Panell d'<span className="text-primary">Admin</span></h1>
-          <p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Gestió de la Colla</p>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all ${
-                  isActive
-                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                    : 'text-stone-500 hover:text-primary hover:bg-primary/5'
-                }`}
-              >
-                <Icon size={17} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-          <button
-            onClick={() => { setSelectedEventId(0); setView('matrix'); }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-stone-500 hover:text-primary hover:bg-primary/5"
-          >
-            <Music size={17} />
-            <span>Matriu de Veus</span>
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-stone-100">
-          <div className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary font-black text-xs flex items-center justify-center border border-primary/20">
-              {user.name[0]}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-stone-900 truncate">{user.name}</p>
-              <p className="text-[10px] font-bold text-stone-400 uppercase">Administrador</p>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── MOBILE TAB BAR ────────────────────────────────────────── */}
-      <div className="lg:hidden flex items-center gap-1 overflow-x-auto px-4 py-3 bg-white border-b border-stone-200/80">
+    <div className="space-y-6">
+      {/* ── MOBILE TAB BAR (only on mobile) ────────────────────────── */}
+      <div className="lg:hidden flex items-center gap-1 overflow-x-auto pb-2 -mx-1 px-1">
         {navItems.map(item => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -931,7 +890,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs whitespace-nowrap shrink-0 transition-all ${
                 isActive
                   ? 'bg-primary text-white shadow-sm'
-                  : 'text-stone-500 bg-stone-100/80 hover:text-primary'
+                  : 'text-stone-500 bg-white border border-stone-200/80 hover:text-primary'
               }`}
             >
               <Icon size={15} />
@@ -942,7 +901,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
       </div>
 
       {/* ── MAIN CONTENT ──────────────────────────────────────────── */}
-      <div className="flex-1 p-6 lg:p-10 flex flex-col gap-10 pb-32 lg:pb-10 overflow-y-auto min-w-0">
+      <div className="flex flex-col gap-8">
 
         {/* ── ALERTS TAB ───────────────────────────────────────────────────────── */}
         {activeTab === 'alertes' && (
