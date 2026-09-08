@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Clock, CheckCircle2, Users, AlertTriangle, ShoppingBag, Package, Plus, Minus, Utensils } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { UserData } from '../App';
@@ -32,6 +33,7 @@ interface PollsViewProps {
 }
 
 export default function PollsView({ user }: PollsViewProps) {
+  const navigate = useNavigate();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [options, setOptions] = useState<PollOption[]>([]);
   const [votes, setVotes] = useState<PollVote[]>([]);
@@ -162,7 +164,7 @@ export default function PollsView({ user }: PollsViewProps) {
 
   return (
     <div className="flex-1 p-4 sm:p-8 max-w-3xl mx-auto w-full flex flex-col gap-8 pb-32">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
             <PieChart size={24} strokeWidth={2.5} />
@@ -176,15 +178,32 @@ export default function PollsView({ user }: PollsViewProps) {
             </p>
           </div>
         </div>
+
+        {user.role === 'admin' && (
+          <button
+            onClick={() => navigate('/admin?tab=enquestes')}
+            className="px-4 py-2.5 bg-[#c2410c] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#9a3412] transition-colors shadow-sm flex items-center gap-2 self-start sm:self-auto"
+          >
+            <Plus size={16} /> Nova Enquesta / Administrar
+          </button>
+        )}
       </div>
 
       {polls.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center glass rounded-3xl border-white/40">
-          <PieChart size={48} className="text-slate-300 mb-4" />
-          <h3 className="text-xl font-black text-slate-900 mb-2">Cap enquesta</h3>
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white rounded-3xl border border-stone-200/80 shadow-sm">
+          <PieChart size={48} className="text-stone-300 mb-4" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">Cap enquesta activa</h3>
           <p className="text-sm text-slate-500 font-medium max-w-md">
             Encara no hi ha cap enquesta activa. Quan els administradors en creïn una, apareixerà aquí.
           </p>
+          {user.role === 'admin' && (
+            <button
+              onClick={() => navigate('/admin?tab=enquestes')}
+              className="mt-6 px-5 py-2.5 bg-[#c2410c] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#9a3412] transition-all shadow-sm flex items-center gap-2"
+            >
+              <Plus size={16} /> Crear primera enquesta
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-6">

@@ -389,8 +389,9 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     return 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=800&auto=format&fit=crop';
   };
 
-  // Find next rehearsal
+  // Find next rehearsal & performance
   const nextRehearsal = upcomingEvents.find(e => e.type === 'Assaig' || e.type.startsWith('Assaig'));
+  const nextPerformance = upcomingEvents.find(e => e.type !== 'Assaig' && !e.type.startsWith('Assaig'));
 
   // Calculate my attendance stats
   const pastAttCount = pastEvents.filter(e => {
@@ -708,31 +709,64 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
           </div>
 
           {/* Widget 3: Uniformitat i Material */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-3">
-            <div className="flex items-center gap-2 text-stone-900 font-black text-xs uppercase tracking-wider">
-              <span className="w-6 h-6 rounded-lg bg-[#c2410c]/10 text-[#c2410c] flex items-center justify-center">
-                <Music size={13} />
+          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-stone-900 font-black text-xs uppercase tracking-wider">
+                <span className="w-6 h-6 rounded-lg bg-[#c2410c]/10 text-[#c2410c] flex items-center justify-center">
+                  <Music size={13} />
+                </span>
+                <span>Uniformitat i Material</span>
+              </div>
+              <span className="px-2.5 py-0.5 bg-stone-100 text-stone-600 text-[9px] font-black uppercase rounded-full">
+                Segons l'Acte
               </span>
-              <span>Uniformitat i Material</span>
             </div>
-            <ul className="space-y-2 text-xs font-semibold text-stone-600 pt-1">
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
-                <span>Camisa oficial verda de la Colla</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
-                <span>Pantaló negre i faixa roja</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
-                <span>Atril petit i canyes de recanvi</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
-                <span>Partitures de carrer plastificades</span>
-              </li>
-            </ul>
+
+            <div className="p-3 bg-amber-50/80 border border-amber-200/70 rounded-2xl">
+              <p className="text-xs text-amber-950 font-semibold leading-relaxed">
+                ℹ️ La indumentària depèn de cada acte. Un dels administradors proporcionarà la informació oficial de vestuari i material necessari per a cada convocatòria.
+              </p>
+            </div>
+
+            {nextPerformance && (
+              <div className="p-3.5 bg-stone-50 border border-stone-200/70 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#c2410c] truncate max-w-[170px]">
+                    {nextPerformance.title}
+                  </span>
+                  <span className="text-[9px] font-bold text-stone-400">
+                    {formatDate(nextPerformance.date)}
+                  </span>
+                </div>
+                {nextPerformance.notes ? (
+                  <div className="bg-white p-2.5 rounded-xl border border-stone-200/60 text-xs text-stone-800 font-bold leading-relaxed">
+                    📌 Indicació direcció: {nextPerformance.notes}
+                  </div>
+                ) : (
+                  <p className="text-[11px] font-medium text-stone-500 italic">
+                    L'administració confirmarà la indumentària exacta (camisa verda, samarreta, etc.) a la convocatòria.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-1">
+              <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Material imprescindible</p>
+              <ul className="space-y-1.5 text-xs font-semibold text-stone-600">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                  <span>Dolçaina o tabal amb canyes de recanvi / baquetes</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                  <span>Atril de carrer i particel·les plastificades</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]"></span>
+                  <span>Indumentària fixada per l'administrador per a l'acte</span>
+                </li>
+              </ul>
+            </div>
           </div>
 
         </div>

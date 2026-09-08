@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Music, LogOut, X, Pencil, AlertTriangle, Info, Menu, Facebook, Instagram,
-  Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles
+  Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles, PieChart
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
@@ -316,6 +316,7 @@ export default function App() {
     if (location.pathname.startsWith('/admin')) {
       if (currentAdminTab === 'musics') return 'Gestió de Músics';
       if (currentAdminTab === 'alertes') return 'Avís Global';
+      if (currentAdminTab === 'enquestes') return "Gestió d'Enquestes";
       return 'Actes i Convocatòries';
     }
     if (location.pathname.startsWith('/matriu')) return 'Matriu de Repertori';
@@ -408,6 +409,16 @@ export default function App() {
               <BookOpen size={18} />
               <span>Repertori</span>
             </button>
+
+            <button
+              onClick={() => navigate('/enquestes')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                location.pathname.startsWith('/enquestes') ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20' : 'text-stone-600 hover:bg-stone-100/80'
+              }`}
+            >
+              <PieChart size={18} />
+              <span>Votacions i Comandes</span>
+            </button>
           </div>
 
           {/* Admin Section */}
@@ -452,15 +463,15 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => navigate('/enquestes')}
+                onClick={() => navigate('/admin?tab=enquestes')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  location.pathname.startsWith('/enquestes')
+                  location.pathname === '/admin' && currentAdminTab === 'enquestes'
                     ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
                     : 'text-stone-600 hover:bg-stone-100/80'
                 }`}
               >
                 <BarChart3 size={18} />
-                <span>Enquestes</span>
+                <span>Gestió d'Enquestes</span>
               </button>
 
               <button

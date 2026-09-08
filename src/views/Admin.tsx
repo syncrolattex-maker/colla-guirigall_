@@ -464,11 +464,26 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   
   const fetchPollDetails = async () => {
     try {
-      const { data: oData } = await supabase.from('poll_options').select('*');
-      const { data: vData } = await supabase.from('poll_votes').select('*, users(name, instrument)');
-      if (oData && vData) {
-        setPollDetails({ options: oData, votes: vData });
+      const { data: oData, error: oErr } = await supabase.from('poll_options').select('*');
+      if (oErr) console.error("Error fetching poll options:", oErr);
+      
+      let vData = null;
+      try {
+        const res = await supabase.from('poll_votes').select('*, users(name, instrument)');
+        if (res.data) vData = res.data;
+      } catch (e) {
+        // Fallback
       }
+
+      if (!vData) {
+        const { data: rawVotes } = await supabase.from('poll_votes').select('*');
+        vData = (rawVotes || []).map((v: any) => ({
+          ...v,
+          users: members.find(m => m.uid === v.user_id) || { name: 'Músic', instrument: '' }
+        }));
+      }
+
+      setPollDetails({ options: oData || [], votes: vData || [] });
     } catch (err) {
       console.error("Error fetching poll details:", err);
     }
