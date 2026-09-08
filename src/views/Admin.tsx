@@ -602,6 +602,60 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     } catch (error) { console.error("Error updating convocat:", error); }
   };
 
+  // --- Lineup Generation Logic ---
+  const [showLineupModal, setShowLineupModal] = useState(false);
+  const [generatingLineup, setGeneratingLineup] = useState(false);
+  const [proposedLineup, setProposedLineup] = useState<{user_id: string, name: string, instrument: string, score: number, peso_acumulado: number}[]>([]);
+  const [manualLineupEdits, setManualLineupEdits] = useState<Record<string, boolean>>({});
+
+  const handleGenerateLineup = async () => {
+    if (!selectedEventId) return;
+    const ev = events.find(e => e.id === selectedEventId);
+    if (!ev || ev.type !== 'Actuació') {
+      alert("La generació automàtica només està disponible per a Actuacions.");
+      return;
+    }
+
+    setGeneratingLineup(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lineup', {
+        body: { event_id: selectedEventId }
+      });
+      if (error) throw error;
+      setProposedLineup(data || []);
+      const initialEdits: Record<string, boolean> = {};
+      (data || []).forEach((u: any) => initialEdits[u.user_id] = true);
+      setManualLineupEdits(initialEdits);
+      setShowLineupModal(true);
+    } catch (err) {
+      console.error("Error generating lineup:", err);
+      alert("Error en generar la proposta. Assegura't que la funció està desplegada.");
+    } finally {
+      setGeneratingLineup(false);
+    }
+  };
+
+  const confirmLineup = async () => {
+    if (!selectedEventId) return;
+    try {
+      const toConvocate = Object.keys(manualLineupEdits).filter(uid => manualLineupEdits[uid]);
+      for (const uid of toConvocate) {
+        await supabase.from('attendances').upsert({
+          eventid: selectedEventId,
+          userid: uid,
+          status: attendances[uid]?.status || 'Pendent',
+          convocat: true,
+          updatedat: new Date().toISOString()
+        }, { onConflict: 'eventid, userid' });
+      }
+      setShowLineupModal(false);
+      alert("Convocatòria aplicada correctament.");
+    } catch (err) {
+      console.error("Error applying lineup:", err);
+      alert("Error en aplicar la convocatòria.");
+    }
+  };
+
   const handlePublish = async () => {
     if (!selectedEventId) return;
     try {
@@ -1201,6 +1255,10 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                  <button onClick={handleGenerateLineup} disabled={generatingLineup} className="flex-1 px-8 py-5 bg-white border-2 border-[#d44211] text-[#d44211] rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#d44211]/5 transition-all shadow-xl">
+                    {generatingLineup ? <div className="animate-spin w-4 h-4 border-2 border-[#d44211]/20 border-t-[#d44211] rounded-full"></div> : <Users size={18} strokeWidth={3} />}
+                    Generar Proposta
+                  </button>
                   <button onClick={handlePublish} className="flex-1 px-8 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-900/20">
                     <CheckCircle size={18} strokeWidth={3} /> Confirmar i Notificar
                   </button>
@@ -1435,6 +1493,50 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
           </>
         )}
       </div>
+      {/* Lineup Modal */}
+      {showLineupModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Proposta de Convocatòria</h3>
+                <p className="text-sm font-medium text-slate-400 mt-1">Generada pel sistema de rotació equitativa</p>
+              </div>
+              <button onClick={() => setShowLineupModal(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 shadow-sm border border-slate-100">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto bg-white flex-1">
+              <div className="space-y-3">
+                {proposedLineup.map((user) => (
+                  <label key={user.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${manualLineupEdits[user.user_id] ? 'border-[#d44211]/30 bg-[#d44211]/5' : 'border-slate-100 bg-slate-50 grayscale'}`}>
+                    <input 
+                      type="checkbox" 
+                      className="w-6 h-6 rounded-xl border-slate-300 text-[#d44211] focus:ring-[#d44211]"
+                      checked={manualLineupEdits[user.user_id]}
+                      onChange={(e) => setManualLineupEdits(prev => ({...prev, [user.user_id]: e.target.checked}))}
+                    />
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-900">{user.name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{user.instrument}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
+              <button onClick={() => setShowLineupModal(false)} className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 rounded-2xl transition-all">
+                Cancel·lar
+              </button>
+              <button onClick={confirmLineup} className="flex-1 py-4 bg-[#d44211] text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#d44211]/20 hover:bg-[#d44211]/90 transition-all">
+                Aplicar Selecció
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

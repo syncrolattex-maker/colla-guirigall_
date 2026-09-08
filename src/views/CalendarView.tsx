@@ -22,6 +22,8 @@ interface AppEvent {
   repertoireids?: number[];
   is_cancelled?: boolean;
   cancellation_reason?: string;
+  slots_dolcaina?: number | null;
+  slots_tabal?: number | null;
 }
 
 interface Song {
@@ -50,12 +52,22 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null);
   const [viewingEvent, setViewingEvent] = useState<AppEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<{
+    title: string;
+    type: string;
+    date: string;
+    location: string;
+    notes: string;
+    slots_dolcaina: number | '';
+    slots_tabal: number | '';
+  }>({
     title: '',
     type: 'Actuació',
     date: '',
     location: '',
-    notes: ''
+    notes: '',
+    slots_dolcaina: '',
+    slots_tabal: ''
   });
 
   const fetchEvents = async () => {
@@ -198,6 +210,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
         date: new Date(newEvent.date).toISOString(), // Use ISO string for consistency
         location: newEvent.location,
         notes: newEvent.notes,
+        slots_dolcaina: newEvent.slots_dolcaina === '' ? null : Number(newEvent.slots_dolcaina),
+        slots_tabal: newEvent.slots_tabal === '' ? null : Number(newEvent.slots_tabal),
         createdby: user.name,
         createdat: editingEvent ? editingEvent.createdat : new Date().toISOString()
       };
@@ -238,8 +252,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       title: event.title,
       type: event.type,
       date: localISO,
-      location: event.location,
-      notes: event.notes
+      location: event.location || '',
+      notes: event.notes || '',
+      slots_dolcaina: event.slots_dolcaina ?? '',
+      slots_tabal: event.slots_tabal ?? ''
     });
     setIsAdding(true);
   };
@@ -247,7 +263,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const handleCloseAddModal = () => {
     setIsAdding(false);
     setEditingEvent(null);
-    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '' });
+    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '', slots_dolcaina: '', slots_tabal: '' });
   };
 
   const handleDeleteEvent = async (eventId: number) => {
@@ -755,6 +771,18 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                     <input required type="datetime-local" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" />
                   </div>
                 </div>
+                {newEvent.type === 'Actuació' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1">Dolçaines necessàries</label>
+                      <input type="number" min="1" value={newEvent.slots_dolcaina} onChange={e => setNewEvent({...newEvent, slots_dolcaina: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1">Tabals necessaris</label>
+                      <input type="number" min="1" value={newEvent.slots_tabal} onChange={e => setNewEvent({...newEvent, slots_tabal: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Ubicació</label>
                   <input type="text" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Ex: Plaça de la Vila" />
