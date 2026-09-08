@@ -536,7 +536,11 @@ export default function App() {
         )}
 
         {/* Page Content */}
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-12">
+        <main className={`flex-1 w-full pb-24 lg:pb-12 ${
+          location.pathname.startsWith('/admin') || location.pathname.startsWith('/matriu')
+            ? '' // Admin and matrix handle their own layout
+            : 'max-w-7xl mx-auto p-4 sm:p-6 lg:p-8'
+        }`}>
           <Routes>
             <Route path="/" element={<Dashboard setView={(v) => handleNavigate(v)} user={user} />} />
             <Route path="/repertori" element={<Repertoire user={user} onNavigate={handleNavigate} />} />
