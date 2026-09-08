@@ -23,6 +23,7 @@ export interface UserData {
   name: string;
   role: 'admin' | 'member';
   instrument: string;
+  is_experienced?: boolean;
 }
 
 export interface GlobalAlert {
@@ -740,6 +741,19 @@ export default function App() {
                   <option value="Dolçaina">Dolçaina</option>
                   <option value="Tabal">Tabal</option>
                 </select>
+              </div>
+              <div className="p-3 bg-stone-50 border border-stone-200/70 rounded-xl flex items-center justify-between">
+                <div>
+                  <label className="block text-[10px] font-black text-stone-500 uppercase tracking-wider">Nivell a la Colla</label>
+                  <p className="text-xs font-bold text-stone-800 mt-0.5">
+                    {user.is_experienced ? '⭐ Músic Experimentat' : 'Músic Base'}
+                  </p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                  user.is_experienced ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-stone-200 text-stone-600'
+                }`}>
+                  {user.is_experienced ? '⭐ Avançat' : 'Base'}
+                </span>
               </div>
               {DEV_MODE && (
                 <div>

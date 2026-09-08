@@ -23,7 +23,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('slots_dolcaina, slots_tabal')
+      .select('slots_dolcaina, slots_tabal, requires_experienced')
       .eq('id', event_id)
       .single();
 
@@ -44,8 +44,15 @@ serve(async (req) => {
     ];
 
     for (const inst of instruments) {
-      // Get all active members for this instrument
-      let instCandidates = candidates.filter(c => c.instrument === inst.name);
+      // Get all active members for this instrument (filtered by experience if event requires it)
+      let instCandidates = event.requires_experienced
+        ? candidates.filter(c => c.instrument === inst.name && c.is_experienced)
+        : candidates.filter(c => c.instrument === inst.name);
+      
+      // If none found with experience, fallback to general pool
+      if (instCandidates.length === 0 && event.requires_experienced) {
+        instCandidates = candidates.filter(c => c.instrument === inst.name);
+      }
       
       if (instCandidates.length === 0) continue;
 

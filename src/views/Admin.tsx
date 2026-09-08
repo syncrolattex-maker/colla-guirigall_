@@ -16,6 +16,11 @@ interface AppEvent {
   date: string;
   type: string;
   ispublished?: boolean;
+  requires_experienced?: boolean;
+  slots_dolcaina?: number | null;
+  slots_tabal?: number | null;
+  location?: string;
+  notes?: string;
 }
 
 interface Member {
@@ -25,6 +30,7 @@ interface Member {
   role: string;
   instrument: string;
   avatar: string;
+  is_experienced?: boolean;
 }
 
 type AdminTab = 'convocatories' | 'musics' | 'veus' | 'alertes' | 'enquestes';
@@ -222,12 +228,15 @@ function AddMemberModal({ onClose, onAdd, adding }: { onClose: () => void; onAdd
 const MemberCard: React.FC<{
   member: Member;
   currentUser: UserData;
+  totalActs: number;
   onUpdate: (uid: string, field: 'instrument' | 'role', value: string) => Promise<void>;
+  onUpdateExperience: (uid: string, isExperienced: boolean) => Promise<void>;
   onDelete: (member: Member) => Promise<void>;
-}> = ({ member, currentUser, onUpdate, onDelete }) => {
+}> = ({ member, currentUser, totalActs, onUpdate, onUpdateExperience, onDelete }) => {
   const [editing, setEditing] = useState(false);
   const [localInstrument, setLocalInstrument] = useState(member.instrument);
   const [localRole, setLocalRole] = useState(member.role);
+  const [localExperienced, setLocalExperienced] = useState(!!member.is_experienced);
   const [saving, setSaving] = useState(false);
   const [showNotify, setShowNotify] = useState(false);
 
@@ -236,6 +245,7 @@ const MemberCard: React.FC<{
     try {
       if (localInstrument !== member.instrument) await onUpdate(member.uid, 'instrument', localInstrument);
       if (localRole !== member.role) await onUpdate(member.uid, 'role', localRole);
+      if (localExperienced !== !!member.is_experienced) await onUpdateExperience(member.uid, localExperienced);
       setEditing(false);
     } catch (err) {
       console.error("Error saving member details:", err);
@@ -247,6 +257,7 @@ const MemberCard: React.FC<{
   const handleCancel = () => {
     setLocalInstrument(member.instrument);
     setLocalRole(member.role);
+    setLocalExperienced(!!member.is_experienced);
     setEditing(false);
   };
 
@@ -335,6 +346,18 @@ const MemberCard: React.FC<{
                 <option value="admin">Administrador</option>
               </select>
             </div>
+            <div className="flex items-center justify-between p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl">
+              <div>
+                <label className="block text-xs font-bold text-stone-900 cursor-pointer">⭐ Músic Experimentat</label>
+                <p className="text-[10px] text-stone-500 font-normal">Nivell requerit per a actuacions exigents</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={localExperienced}
+                onChange={e => setLocalExperienced(e.target.checked)}
+                className="w-4 h-4 text-primary rounded cursor-pointer"
+              />
+            </div>
             <button
               onClick={handleSave}
               disabled={saving}
@@ -344,10 +367,24 @@ const MemberCard: React.FC<{
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${instrumentColor(member.instrument)}`}>
-              <Music size={11} />
-              {member.instrument}
+          <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-100/60">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${instrumentColor(member.instrument)}`}>
+                <Music size={11} />
+                {member.instrument}
+              </span>
+              {member.is_experienced ? (
+                <span className="px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-[10px] font-black flex items-center gap-1 shadow-xs">
+                  ⭐ Experimentat
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold">
+                  Base
+                </span>
+              )}
+            </div>
+            <span className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded-xl text-xs font-black" title="Total d'actuacions que ha fet este membre">
+              🏆 {totalActs || 0} actuacions
             </span>
           </div>
         )}
@@ -399,6 +436,8 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   const [showAddMember, setShowAddMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
 
+  const [allMemberActCounts, setAllMemberActCounts] = useState<Record<string, number>>({});
+
   const fetchEvents = async () => {
     const now = new Date().getTime();
     const { data, error } = await supabase
@@ -418,6 +457,28 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     }
   };
 
+  const fetchMemberActCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('attendances')
+        .select('userid, eventid, convocat, attended, events(type, date)')
+        .or('convocat.eq.true,attended.eq.true');
+      if (error) {
+        console.error("Error fetching member act counts:", error);
+        return;
+      }
+      const counts: Record<string, number> = {};
+      data?.forEach((row: any) => {
+        if (!row.events || !row.events.type?.startsWith('Assaig')) {
+          counts[row.userid] = (counts[row.userid] || 0) + 1;
+        }
+      });
+      setAllMemberActCounts(counts);
+    } catch (err) {
+      console.error("Error computing act counts:", err);
+    }
+  };
+
   const fetchMembers = async () => {
     const { data, error } = await supabase.from('users').select('*');
     if (error) console.error("Error fetching members:", error);
@@ -430,7 +491,8 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
         email: d.email || '',
         role: d.role,
         instrument: d.instrument || 'Sense assignar',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name)}&background=d44211&color=fff`
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name)}&background=d44211&color=fff`,
+        is_experienced: !!d.is_experienced
       })));
     }
   };
@@ -492,6 +554,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   useEffect(() => {
     fetchEvents();
     fetchMembers();
+    fetchMemberActCounts();
     fetchGlobalAlert();
     fetchAdminPolls();
     fetchPollDetails();
@@ -499,6 +562,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     const onFocus = () => {
       fetchEvents();
       fetchMembers();
+      fetchMemberActCounts();
       fetchGlobalAlert();
       fetchAdminPolls();
       fetchPollDetails();
@@ -753,6 +817,30 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     } catch (error) {
       console.error("Error updating member:", error);
       alert("Error en actualitzar el membre.");
+    }
+  };
+
+  const handleUpdateExperience = async (uid: string, isExperienced: boolean) => {
+    try {
+      const { error } = await supabase.from('users').update({ is_experienced: isExperienced }).eq('uid', uid);
+      if (error) throw error;
+      await fetchMembers();
+    } catch (error) {
+      console.error("Error updating member experience:", error);
+      alert("Error en actualitzar el nivell del membre.");
+    }
+  };
+
+  const handleToggleEventExperience = async () => {
+    if (!selectedEventId || !selectedEvent) return;
+    const newValue = !selectedEvent.requires_experienced;
+    try {
+      const { error } = await supabase.from('events').update({ requires_experienced: newValue }).eq('id', selectedEventId);
+      if (error) throw error;
+      setEvents(prev => prev.map(e => e.id === selectedEventId ? { ...e, requires_experienced: newValue } : e));
+    } catch (err) {
+      console.error("Error updating event experience requirement:", err);
+      alert("Error en canviar el requisit de l'acte.");
     }
   };
 
@@ -1323,7 +1411,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                   {/* Left Event Details */}
                   <div className="space-y-4 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-primary text-xs">🚩</span>
                       <span className="text-[11px] font-black tracking-wider uppercase text-stone-500">
                         ACTUACIÓ SELECCIONADA
@@ -1332,6 +1420,17 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         Inscripcions obertes
                       </span>
+                      <button
+                        onClick={handleToggleEventExperience}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border transition-all ${
+                          selectedEvent?.requires_experienced
+                            ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-xs'
+                            : 'bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-200/80'
+                        }`}
+                        title="Fes clic per alternar el requisit de músics experimentats per a aquest acte"
+                      >
+                        <span>{selectedEvent?.requires_experienced ? '⭐ Nivell Experimentat' : '👥 Nivell Estàndard'}</span>
+                      </button>
                     </div>
 
                     <div className="relative max-w-xl">
@@ -1487,14 +1586,20 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                                   {initials}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5">
                                     <p className="font-black text-stone-900 text-sm truncate">{m.name}</p>
+                                    {m.is_experienced && (
+                                      <span className="text-amber-600 text-xs shrink-0" title="Músic Experimentat (Nivell Avançat)">⭐</span>
+                                    )}
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200/60 shrink-0">
                                       {voiceTag}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5">
-                                    {m.instrument} {idx === 0 ? '· Veterà (12 anys)' : idx === 1 ? '· Solista' : ''}
+                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5 flex items-center gap-1.5">
+                                    <span>{m.instrument} {idx === 0 ? '· Veterà' : idx === 1 ? '· Solista' : ''}</span>
+                                    <span className="text-[10px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
+                                      🏆 {allMemberActCounts[m.uid] || 0} actes
+                                    </span>
                                   </p>
                                 </div>
                               </div>
@@ -1604,14 +1709,20 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                                   {initials}
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5">
                                     <p className="font-black text-stone-900 text-sm truncate">{m.name}</p>
+                                    {m.is_experienced && (
+                                      <span className="text-amber-600 text-xs shrink-0" title="Músic Experimentat (Nivell Avançat)">⭐</span>
+                                    )}
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200/60 shrink-0">
                                       {voiceTag}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5">
-                                    {m.instrument} {idx === 0 ? 'tradicional' : ''}
+                                  <p className="text-xs text-stone-400 font-medium truncate mt-0.5 flex items-center gap-1.5">
+                                    <span>{m.instrument} {idx === 0 ? 'tradicional' : ''}</span>
+                                    <span className="text-[10px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
+                                      🏆 {allMemberActCounts[m.uid] || 0} actes
+                                    </span>
                                   </p>
                                 </div>
                               </div>
@@ -1792,7 +1903,9 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                     key={member.uid}
                     member={member}
                     currentUser={user}
+                    totalActs={allMemberActCounts[member.uid] || 0}
                     onUpdate={handleUpdateMember}
+                    onUpdateExperience={handleUpdateExperience}
                     onDelete={handleDeleteMember}
                   />
                 ))}
@@ -1820,8 +1933,19 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Proposta de Convocatòria</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">Generada pel sistema de rotació equitativa</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Proposta de Convocatòria</h3>
+                  {selectedEvent?.requires_experienced && (
+                    <span className="px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[10px] font-black uppercase tracking-wider">
+                      ⭐ Músics Experimentats
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-medium text-slate-500 mt-1">
+                  {selectedEvent?.requires_experienced 
+                    ? 'Proposta SWRR restringida únicament als músics de nivell avançat / experimentats.' 
+                    : 'Generada pel sistema de rotació equitativa (SWRR) general.'}
+                </p>
               </div>
               <button onClick={() => setShowLineupModal(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 shadow-sm border border-slate-100">
                 <X size={20} />
@@ -1830,20 +1954,31 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
             
             <div className="p-8 overflow-y-auto bg-white flex-1">
               <div className="space-y-3">
-                {proposedLineup.map((user) => (
-                  <label key={user.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${manualLineupEdits[user.user_id] ? 'border-[#d44211]/30 bg-[#d44211]/5' : 'border-slate-100 bg-slate-50 grayscale'}`}>
-                    <input 
-                      type="checkbox" 
-                      className="w-6 h-6 rounded-xl border-slate-300 text-[#d44211] focus:ring-[#d44211]"
-                      checked={manualLineupEdits[user.user_id]}
-                      onChange={(e) => setManualLineupEdits(prev => ({...prev, [user.user_id]: e.target.checked}))}
-                    />
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-900">{user.name}</p>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{user.instrument}</p>
-                    </div>
-                  </label>
-                ))}
+                {proposedLineup.map((pUser: any) => {
+                  const memberInfo = members.find(m => m.uid === pUser.user_id);
+                  const isExp = pUser.is_experienced || memberInfo?.is_experienced;
+                  return (
+                    <label key={pUser.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${manualLineupEdits[pUser.user_id] ? 'border-[#d44211]/30 bg-[#d44211]/5' : 'border-slate-100 bg-slate-50 grayscale'}`}>
+                      <input 
+                        type="checkbox" 
+                        className="w-6 h-6 rounded-xl border-slate-300 text-[#d44211] focus:ring-[#d44211]"
+                        checked={manualLineupEdits[pUser.user_id]}
+                        onChange={(e) => setManualLineupEdits(prev => ({...prev, [pUser.user_id]: e.target.checked}))}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900">{pUser.name}</p>
+                          {isExp && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                              ⭐ Experimentat
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{pUser.instrument}</p>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 

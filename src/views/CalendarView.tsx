@@ -24,6 +24,7 @@ interface AppEvent {
   cancellation_reason?: string;
   slots_dolcaina?: number | null;
   slots_tabal?: number | null;
+  requires_experienced?: boolean;
 }
 
 interface Song {
@@ -36,6 +37,7 @@ interface Attendance {
   userid: string;
   status: 'Vull anar-hi' | 'No puc' | 'Pendent';
   convocat?: boolean;
+  attended?: boolean;
   updatedat?: string;
 }
 
@@ -61,6 +63,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     notes: string;
     slots_dolcaina: number | '';
     slots_tabal: number | '';
+    requires_experienced: boolean;
   }>({
     title: '',
     type: 'Actuació',
@@ -68,7 +71,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     location: '',
     notes: '',
     slots_dolcaina: '',
-    slots_tabal: ''
+    slots_tabal: '',
+    requires_experienced: false
   });
 
   const fetchEvents = async () => {
@@ -213,6 +217,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
         notes: newEvent.notes,
         slots_dolcaina: newEvent.slots_dolcaina === '' ? null : Number(newEvent.slots_dolcaina),
         slots_tabal: newEvent.slots_tabal === '' ? null : Number(newEvent.slots_tabal),
+        requires_experienced: !!newEvent.requires_experienced,
         createdby: user.name,
         createdat: editingEvent ? editingEvent.createdat : new Date().toISOString()
       };
@@ -256,7 +261,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       location: event.location || '',
       notes: event.notes || '',
       slots_dolcaina: event.slots_dolcaina ?? '',
-      slots_tabal: event.slots_tabal ?? ''
+      slots_tabal: event.slots_tabal ?? '',
+      requires_experienced: !!event.requires_experienced
     });
     setIsAdding(true);
   };
@@ -264,7 +270,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const handleCloseAddModal = () => {
     setIsAdding(false);
     setEditingEvent(null);
-    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '', slots_dolcaina: '', slots_tabal: '' });
+    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '', slots_dolcaina: '', slots_tabal: '', requires_experienced: false });
   };
 
   const handleDeleteEvent = async (eventId: number) => {
@@ -400,6 +406,23 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   }).length;
   const attendanceRate = pastEvents.length > 0 ? Math.round((pastAttCount / pastEvents.length) * 100) : 100;
 
+  // Calculate each member's total performances (actuacions realitzades)
+  const memberActCounts: Record<string, number> = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const nowTime = new Date().getTime();
+    events
+      .filter(e => new Date(e.date).getTime() < nowTime && !e.type.startsWith('Assaig') && !e.is_cancelled)
+      .forEach(e => {
+        const atts = allAttendances[e.id] || {};
+        Object.keys(atts).forEach(uid => {
+          if (atts[uid].convocat || atts[uid].attended) {
+            counts[uid] = (counts[uid] || 0) + 1;
+          }
+        });
+      });
+    return counts;
+  }, [events, allAttendances]);
+
   return (
     <div className="space-y-8">
       
@@ -498,13 +521,27 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               const isFull = totalSlots > 0 && confirmedCount >= totalSlots;
               const remainingSlots = totalSlots > 0 ? totalSlots - confirmedCount : 0;
 
+              const isPast = new Date(event.date) < now;
+              const convocats = users.filter(u => {
+                const att = eventAtts[u.uid];
+                return att?.convocat || (att as any)?.attended;
+              });
+              const confirmedAttendees = users.filter(u => eventAtts[u.uid]?.status === 'Vull anar-hi');
+              const musiciansToDisplay = convocats.length > 0 ? convocats : confirmedAttendees;
+              const dolcainesList = musiciansToDisplay.filter(m => (m.instrument || '').toLowerCase().includes('dolçaina'));
+              const tabalsList = musiciansToDisplay.filter(m => (m.instrument || '').toLowerCase().includes('tabal'));
+              const othersList = musiciansToDisplay.filter(m => !(m.instrument || '').toLowerCase().includes('dolçaina') && !(m.instrument || '').toLowerCase().includes('tabal'));
+
               return (
                 <div 
                   key={event.id} 
                   className="bg-white rounded-3xl overflow-hidden border border-stone-200/80 shadow-sm card-warm card-warm-hover flex flex-col"
                 >
                   {/* Photo Header with Image (Captura 3) */}
-                  <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-stone-900">
+                  <div 
+                    className="relative h-48 sm:h-56 w-full overflow-hidden bg-stone-900 cursor-pointer"
+                    onClick={() => setViewingEvent(event)}
+                  >
                     <img 
                       src={getEventImage(event)} 
                       alt={event.title}
@@ -540,17 +577,25 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                   {/* Card Body */}
                   <div className="p-6 space-y-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         <span className="tag-badge bg-orange-50 text-[#c2410c] border border-orange-100">
                           {event.type}
                         </span>
+                        {event.requires_experienced && (
+                          <span className="tag-badge bg-amber-100/90 text-amber-900 border border-amber-300 flex items-center gap-1 font-black">
+                            ⭐ Nivell Experimentat
+                          </span>
+                        )}
                         {event.notes && (
                           <span className="text-[10px] text-stone-400 font-medium truncate max-w-xs">
                             {event.notes}
                           </span>
                         )}
                       </div>
-                      <h3 className="text-xl font-black text-stone-900 tracking-tight">
+                      <h3 
+                        onClick={() => setViewingEvent(event)}
+                        className="text-xl font-black text-stone-900 tracking-tight cursor-pointer hover:text-[#c2410c] transition-colors"
+                      >
                         {event.title}
                       </h3>
                       {event.location && (
@@ -583,6 +628,104 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                         </span>
                       )}
                     </div>
+
+                    {/* Músics que han actuat / Convocats */}
+                    {event.type !== 'Assaig' && !event.type.startsWith('Assaig') && (
+                      <div className="p-4 bg-stone-50/90 rounded-2xl border border-stone-200/70 space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-black text-stone-800 uppercase tracking-wider text-[11px]">
+                            <Users size={14} className="text-[#c2410c]" />
+                            <span>{isPast ? 'Músics que van actuar' : 'Músics convocats'}</span>
+                            <span className="px-2 py-0.5 rounded-full bg-stone-200/80 text-stone-700 text-[10px] font-black">
+                              {musiciansToDisplay.length}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setViewingEvent(event)}
+                            className="text-[11px] font-bold text-[#c2410c] hover:underline flex items-center gap-1"
+                          >
+                            Fitxa completa <ExternalLink size={11} />
+                          </button>
+                        </div>
+
+                        {musiciansToDisplay.length === 0 ? (
+                          <p className="text-xs text-stone-400 italic">
+                            {isPast ? 'No hi ha registre de participants per a este acte.' : 'Convocatòria pendent de publicar.'}
+                          </p>
+                        ) : (
+                          <div className="space-y-2 text-xs">
+                            {dolcainesList.length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-orange-950 block mb-1">
+                                  🎺 Dolçaines ({dolcainesList.length}):
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {dolcainesList.map(m => (
+                                    <span
+                                      key={m.uid}
+                                      title={`${m.name} · ${memberActCounts[m.uid] || 0} actuacions realitzades${m.is_experienced ? ' · Músic experimentat' : ''}`}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
+                                        m.is_experienced 
+                                          ? 'bg-amber-50 text-amber-900 border-amber-200/80 shadow-xs' 
+                                          : 'bg-white text-stone-700 border-stone-200'
+                                      }`}
+                                    >
+                                      {m.name.split(' ')[0]} {m.name.split(' ')[1] ? `${m.name.split(' ')[1][0]}.` : ''}
+                                      {m.is_experienced && <span className="text-amber-600 text-[10px]">⭐</span>}
+                                      <span className="text-[10px] text-stone-400 font-semibold">({memberActCounts[m.uid] || 0})</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {tabalsList.length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-950 block mb-1">
+                                  🥁 Tabals ({tabalsList.length}):
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {tabalsList.map(m => (
+                                    <span
+                                      key={m.uid}
+                                      title={`${m.name} · ${memberActCounts[m.uid] || 0} actuacions realitzades${m.is_experienced ? ' · Músic experimentat' : ''}`}
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
+                                        m.is_experienced 
+                                          ? 'bg-amber-50 text-amber-900 border-amber-200/80 shadow-xs' 
+                                          : 'bg-white text-stone-700 border-stone-200'
+                                      }`}
+                                    >
+                                      {m.name.split(' ')[0]} {m.name.split(' ')[1] ? `${m.name.split(' ')[1][0]}.` : ''}
+                                      {m.is_experienced && <span className="text-amber-600 text-[10px]">⭐</span>}
+                                      <span className="text-[10px] text-stone-400 font-semibold">({memberActCounts[m.uid] || 0})</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {othersList.length > 0 && (
+                              <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 block mb-1">
+                                  Altres ({othersList.length}):
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {othersList.map(m => (
+                                    <span
+                                      key={m.uid}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white text-stone-700 border border-stone-200"
+                                    >
+                                      {m.name.split(' ')[0]}
+                                      <span className="text-[10px] text-stone-400">({memberActCounts[m.uid] || 0})</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action Button & Admin Tools */}
                     <div className="pt-2 flex items-center justify-between gap-3">
@@ -837,6 +980,17 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                     </div>
                   </div>
                 )}
+                {viewingEvent.requires_experienced && (
+                  <div className="mb-4 p-4 bg-amber-50 border-2 border-amber-200/90 rounded-2xl flex items-start gap-3 shadow-xs">
+                    <span className="text-2xl mt-0.5">⭐</span>
+                    <div>
+                      <h4 className="font-black text-amber-900 uppercase text-xs tracking-wider mb-0.5">Acte de Nivell Avançat</h4>
+                      <p className="text-amber-800 font-medium text-xs">
+                        Aquesta actuació requereix el grup de músics experimentats de la colla. La proposta de rotació SWRR s'aplica exclusivament entre aquest grup.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {viewingEvent.notes && (
                   <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <p className="text-slate-700 whitespace-pre-wrap">{viewingEvent.notes}</p>
@@ -878,39 +1032,120 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                 </div>
               )}
 
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Users size={20} className="text-[#d44211]" />
-                  Llista de Convocats
-                </h3>
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-2 bg-slate-50 p-3 border-b border-slate-200 font-bold text-sm text-slate-700">
-                    <div>Músic</div>
-                    <div>Instrument</div>
-                  </div>
-                  <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                    {users
-                      .filter(u => {
-                        const att = allAttendances[viewingEvent.id]?.[u.uid];
-                        return att?.convocat || att?.status === 'Vull anar-hi';
-                      })
-                      .map(u => (
-                        <div key={u.uid} className="grid grid-cols-2 p-3 text-sm items-center">
-                          <div className="font-medium text-slate-900">{u.name}</div>
-                          <div className="text-slate-500">{u.instrument || 'Sense assignar'}</div>
-                        </div>
-                      ))}
-                    {users.filter(u => {
-                      const att = allAttendances[viewingEvent.id]?.[u.uid];
-                      return att?.convocat || att?.status === 'Vull anar-hi';
-                    }).length === 0 && (
-                      <div className="p-4 text-center text-slate-500 text-sm">
-                        Encara no hi ha cap músic confirmat o convocat.
+              {/* Convocats / Participants Section */}
+              {(() => {
+                const isPastModal = new Date(viewingEvent.date) < new Date();
+                const modalConvocats = users.filter(u => {
+                  const att = allAttendances[viewingEvent.id]?.[u.uid];
+                  return att?.convocat || (att as any)?.attended;
+                });
+                const confirmedOnly = users.filter(u => allAttendances[viewingEvent.id]?.[u.uid]?.status === 'Vull anar-hi');
+                const listToShow = modalConvocats.length > 0 ? modalConvocats : confirmedOnly;
+                const dolcs = listToShow.filter(u => (u.instrument || '').toLowerCase().includes('dolçaina'));
+                const tabs = listToShow.filter(u => (u.instrument || '').toLowerCase().includes('tabal'));
+                const others = listToShow.filter(u => !(u.instrument || '').toLowerCase().includes('dolçaina') && !(u.instrument || '').toLowerCase().includes('tabal'));
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                          <Users size={20} className="text-[#d44211]" />
+                          {isPastModal ? 'Plantilla que va actuar' : 'Llista de Convocats'} ({listToShow.length})
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          Qui ha fet eixe acte i el còmput total d'actuacions acumulades
+                        </p>
                       </div>
-                    )}
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+                      {listToShow.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-sm italic">
+                          Encara no hi ha cap músic confirmat o convocat per a aquest acte.
+                        </div>
+                      ) : (
+                        <>
+                          {dolcs.length > 0 && (
+                            <div className="bg-orange-50/40 p-3 text-[11px] font-black uppercase tracking-wider text-orange-900 border-b border-orange-100 flex items-center justify-between">
+                              <span>🎺 Dolçaines ({dolcs.length})</span>
+                              <span className="text-[10px] text-stone-400 font-semibold lowercase">còmput d'actes</span>
+                            </div>
+                          )}
+                          {dolcs.map(u => (
+                            <div key={u.uid} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-orange-100 text-primary font-black text-xs flex items-center justify-center">
+                                  {u.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-sm text-slate-900">{u.name}</span>
+                                    {u.is_experienced && (
+                                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-200/80" title="Músic Experimentat">
+                                        ⭐ Experimentat
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-slate-400">{u.instrument || 'Dolçaina'}</span>
+                                </div>
+                              </div>
+                              <span className="px-3 py-1 bg-stone-100 text-stone-700 text-xs font-black rounded-xl border border-stone-200/60" title="Total d'actuacions realitzades esta temporada">
+                                🏆 {memberActCounts[u.uid] || 0} actes
+                              </span>
+                            </div>
+                          ))}
+
+                          {tabs.length > 0 && (
+                            <div className="bg-blue-50/40 p-3 text-[11px] font-black uppercase tracking-wider text-blue-900 border-t border-b border-blue-100 flex items-center justify-between">
+                              <span>🥁 Tabals i Percussió ({tabs.length})</span>
+                              <span className="text-[10px] text-stone-400 font-semibold lowercase">còmput d'actes</span>
+                            </div>
+                          )}
+                          {tabs.map(u => (
+                            <div key={u.uid} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center">
+                                  {u.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-sm text-slate-900">{u.name}</span>
+                                    {u.is_experienced && (
+                                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-200/80" title="Músic Experimentat">
+                                        ⭐ Experimentat
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-slate-400">{u.instrument || 'Tabal'}</span>
+                                </div>
+                              </div>
+                              <span className="px-3 py-1 bg-stone-100 text-stone-700 text-xs font-black rounded-xl border border-stone-200/60" title="Total d'actuacions realitzades esta temporada">
+                                🏆 {memberActCounts[u.uid] || 0} actes
+                              </span>
+                            </div>
+                          ))}
+
+                          {others.length > 0 && (
+                            <div className="bg-slate-50 p-3 text-[11px] font-black uppercase tracking-wider text-slate-700 border-t border-b border-slate-200 flex items-center justify-between">
+                              <span>Altres ({others.length})</span>
+                              <span className="text-[10px] text-stone-400 font-semibold lowercase">còmput d'actes</span>
+                            </div>
+                          )}
+                          {others.map(u => (
+                            <div key={u.uid} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
+                              <span className="font-bold text-sm text-slate-900">{u.name}</span>
+                              <span className="px-3 py-1 bg-stone-100 text-stone-700 text-xs font-black rounded-xl border border-stone-200/60">
+                                🏆 {memberActCounts[u.uid] || 0} actes
+                              </span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -961,16 +1196,33 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                   </div>
                 </div>
                 {newEvent.type === 'Actuació' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-1">Dolçaines necessàries</label>
-                      <input type="number" min="1" value={newEvent.slots_dolcaina} onChange={e => setNewEvent({...newEvent, slots_dolcaina: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Dolçaines necessàries</label>
+                        <input type="number" min="1" value={newEvent.slots_dolcaina} onChange={e => setNewEvent({...newEvent, slots_dolcaina: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Tabals necessaris</label>
+                        <input type="number" min="1" value={newEvent.slots_tabal} onChange={e => setNewEvent({...newEvent, slots_tabal: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-1">Tabals necessaris</label>
-                      <input type="number" min="1" value={newEvent.slots_tabal} onChange={e => setNewEvent({...newEvent, slots_tabal: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Tots" />
+                    <div className="p-4 bg-amber-50/70 border border-amber-200/90 rounded-2xl flex items-start gap-3">
+                      <input 
+                        type="checkbox" 
+                        id="requires_experienced"
+                        checked={newEvent.requires_experienced}
+                        onChange={e => setNewEvent({...newEvent, requires_experienced: e.target.checked})}
+                        className="mt-1 w-4 h-4 text-[#c2410c] rounded focus:ring-[#c2410c] cursor-pointer"
+                      />
+                      <label htmlFor="requires_experienced" className="text-xs font-bold text-stone-900 cursor-pointer">
+                        ⭐ Requereix músics experimentats (Nivell Avançat)
+                        <span className="block text-[11px] text-stone-500 font-medium mt-0.5">
+                          Activa aquesta opció si l'acte requereix el nivell de la gent més experimentada. La rotació automàtica SWRR triarà exclusivament membres d'aquest grup.
+                        </span>
+                      </label>
                     </div>
-                  </div>
+                  </>
                 )}
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Ubicació</label>
