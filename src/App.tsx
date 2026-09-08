@@ -317,7 +317,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf6f0] text-stone-900 font-sans flex flex-col lg:flex-row relative">
+    <div className="min-h-screen bg-[#faf6f0] text-stone-900 font-sans flex flex-col relative">
       
       {/* ─── DESKTOP SIDEBAR ────────────────────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-64 xl:w-72 bg-white border-r border-stone-200/80 fixed left-0 top-0 bottom-0 z-30 overflow-y-auto">
@@ -468,10 +468,10 @@ export default function App() {
       </aside>
 
       {/* ─── MAIN CONTENT AREA ────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 xl:pl-72">
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 xl:pl-72 w-full">
         
         {/* Top Header Desktop */}
-        <header className="hidden lg:flex sticky top-0 z-20 items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md border-b border-stone-200/60">
+        <header className="hidden lg:flex sticky top-0 z-20 items-center justify-between px-8 py-4 bg-white/80 backdrop-blur-md border-b border-stone-200/60 w-full">
           <div className="flex items-center gap-3 text-xs font-semibold text-stone-400">
             <span className="hover:text-stone-700 cursor-pointer" onClick={() => navigate('/')}>Inici</span>
             <ChevronRight size={14} />
@@ -552,6 +552,21 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+
+        {/* Global Footer */}
+        <footer className="mt-auto py-8 pb-24 lg:pb-8 w-full bg-white border-t border-slate-100 flex flex-col items-center justify-center gap-4">
+          <div className="flex items-center gap-6">
+            <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors" title="Facebook">
+              <Facebook size={20} />
+            </a>
+            <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors" title="Instagram">
+              <Instagram size={20} />
+            </a>
+          </div>
+          <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 text-center">
+            &copy; {new Date().getFullYear()} Colla Guirigall d'Alcàsser. Tots els drets reservats.
+          </p>
+        </footer>
       </div>
 
       {/* ─── MOBILE BOTTOM NAVIGATION BAR ─────────────────────────── */}
@@ -691,21 +706,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* Global Footer */}
-      <footer className="mt-auto py-8 bg-white border-t border-slate-100 flex flex-col items-center justify-center gap-4">
-        <div className="flex items-center gap-6">
-          <a href="https://www.facebook.com/collaguirigalldalcasser/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors" title="Facebook">
-            <Facebook size={20} />
-          </a>
-          <a href="https://www.instagram.com/colla_guirigall/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#E4405F] transition-colors" title="Instagram">
-            <Instagram size={20} />
-          </a>
-        </div>
-        <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 text-center">
-          &copy; {new Date().getFullYear()} Colla Guirigall d'Alcàsser. Tots els drets reservats.
-        </p>
-      </footer>
 
     </div>
   );
