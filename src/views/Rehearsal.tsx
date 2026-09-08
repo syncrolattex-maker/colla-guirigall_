@@ -380,7 +380,8 @@ export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
     );
   }
 
-  const primaryRehearsal = rehearsals[0];
+  // Stateful: default to first rehearsal
+  const primaryRehearsal = rehearsals.find(r => r.id === (rehearsals[0]?.id)) ?? rehearsals[0] ?? null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32 space-y-8 animate-in fade-in duration-500">
@@ -393,6 +394,30 @@ export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
         </div>
       ) : (
         <div className="space-y-8">
+          {/* Multiple events selector — show only when there are more than 1 */}
+          {rehearsals.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 shrink-0">Properes trobades:</span>
+              {rehearsals.slice(0, 6).map(r => {
+                const isSelected = r.id === primaryRehearsal.id;
+                const d = new Date(r.date);
+                const label = d.toLocaleDateString('ca-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+                return (
+                  <button
+                    key={r.id}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all border ${
+                      isSelected
+                        ? 'bg-primary text-white border-primary shadow-sm'
+                        : 'bg-white border-stone-200 text-stone-600 hover:border-primary/40 hover:text-primary'
+                    }`}
+                  >
+                    {r.title || label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Header Card (Matches Screenshot 7) */}
           <div className="bg-white rounded-3xl border border-stone-200/80 p-6 md:p-8 shadow-sm space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

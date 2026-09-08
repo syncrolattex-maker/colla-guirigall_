@@ -640,35 +640,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     }
   };
 
-  const handleWhatsAppShare = () => {
-    if (!selectedEvent) return;
-    const eventDate = new Date(selectedEvent.date).toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    const confirmed = combinedData.filter(m => m.convocat);
-    const msg = `📢 *CONTROL DE PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL* 📢\n\n🗓️ *${selectedEvent.title}*\n📅 ${eventDate}\n\n*MÚSICS CONVOCATS (${confirmed.length}):*\n` +
-      confirmed.map((m, i) => `• ${m.name} (${m.instrument})`).join('\n') +
-      `\n\nReviseu l'aplicació per a més detalls! 🎺🥁`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-  };
-
-  const handleExportList = () => {
-    if (!selectedEvent) return;
-    const confirmed = combinedData.filter(m => m.convocat);
-    const dolcs = confirmed.filter(m => m.instrument.toLowerCase().includes('dolçaina'));
-    const tabs = confirmed.filter(m => !m.instrument.toLowerCase().includes('dolçaina'));
-    
-    let content = `PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL\n`;
-    content += `Actuació: ${selectedEvent.title}\nData: ${new Date(selectedEvent.date).toLocaleString('ca-ES')}\n\n`;
-    content += `DOLÇAINES (${dolcs.length}):\n` + dolcs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n\n';
-    content += `TABALS I PERCUSSIÓ (${tabs.length}):\n` + tabs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n';
-    
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Plantilla_${selectedEvent.title.replace(/\s+/g, '_')}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // handleWhatsAppShare and handleExportList are defined after combinedData (see below)
 
   // --- Lineup Generation Logic ---
   const [showLineupModal, setShowLineupModal] = useState(false);
@@ -857,71 +829,88 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     m.instrument.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  // Handlers that reference combinedData — defined here, AFTER combinedData
+  const handleWhatsAppShare = () => {
+    if (!selectedEvent) return;
+    const eventDate = new Date(selectedEvent.date).toLocaleDateString('ca-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const confirmed = combinedData.filter(m => m.convocat);
+    const msg = `📢 *CONTROL DE PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL* 📢\n\n🗓️ *${selectedEvent.title}*\n📅 ${eventDate}\n\n*MÚSICS CONVOCATS (${confirmed.length}):*\n` +
+      confirmed.map((m) => `• ${m.name} (${m.instrument})`).join('\n') +
+      `\n\nReviseu l'aplicació per a més detalls! 🎺🥁`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const handleExportList = () => {
+    if (!selectedEvent) return;
+    const confirmed = combinedData.filter(m => m.convocat);
+    const dolcs = confirmed.filter(m => m.instrument.toLowerCase().includes('dolçaina'));
+    const tabs = confirmed.filter(m => !m.instrument.toLowerCase().includes('dolçaina'));
+    let content = `PLANTILLA D'ACTUACIÓ - COLLA GUIRIGALL\n`;
+    content += `Actuació: ${selectedEvent.title}\nData: ${new Date(selectedEvent.date).toLocaleString('ca-ES')}\n\n`;
+    content += `DOLÇAINES (${dolcs.length}):\n` + dolcs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n\n';
+    content += `TABALS I PERCUSSIÓ (${tabs.length}):\n` + tabs.map((m, i) => `${i + 1}. ${m.name} - ${m.instrument} ${m.note ? `[${m.note}]` : ''}`).join('\n') + '\n';
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Plantilla_${selectedEvent.title.replace(/\s+/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ─── Nav items ─────────────────────────────────────────────────────────────
   const navItems = [
     { id: 'convocatories' as AdminTab, label: 'Convocatòries', icon: Calendar },
     { id: 'musics' as AdminTab, label: 'Músics', icon: Users },
-    { id: 'veus' as AdminTab, label: 'Matriu de Veus', icon: Music },
     { id: 'alertes' as AdminTab, label: 'Alertes', icon: Bell },
     { id: 'enquestes' as AdminTab, label: 'Enquestes', icon: PieChart },
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-[#fcfcfd]">
-      {/* Sidebar */}
-      <aside className="w-full lg:w-72 glass border-r border-white/40 p-8 flex flex-col gap-10 shrink-0 z-20">
-        <div className="flex flex-col gap-2 px-2">
-          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-2">
-            <Users size={24} strokeWidth={2.5} />
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Panell d'<span className="text-gradient">Admin</span></h1>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Gestió de la Colla</p>
+    <div className="space-y-6">
+      {/* ── HORIZONTAL TAB BAR ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-stone-900 tracking-tight">
+            Panell d'<span className="text-primary">Administració</span>
+          </h1>
+          <p className="text-stone-400 text-xs font-bold uppercase tracking-widest mt-1">Gestió de la Colla Guirigall</p>
         </div>
 
-        <nav className="flex flex-col gap-3">
+        {/* Tab bar — scrollable on mobile */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 -mx-1 px-1">
           {navItems.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  if (item.id === 'veus') {
-                    setSelectedEventId(0); // Reset for global matrix
-                    setView('matrix');
-                  } else {
-                    setActiveTab(item.id);
-                  }
-                }}
-                className={`flex items-center gap-4 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] group transition-all ${
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all shrink-0 ${
                   isActive
-                    ? 'bg-primary text-white shadow-xl shadow-primary/20'
-                    : 'text-slate-400 hover:text-primary hover:bg-primary/5'
+                    ? 'bg-primary text-white shadow-md shadow-primary/20'
+                    : 'text-stone-500 hover:text-primary hover:bg-primary/5 bg-white border border-stone-200/80'
                 }`}
               >
-                <Icon size={18} className={isActive ? '' : 'group-hover:scale-110 transition-transform'} />
+                <Icon size={16} />
                 <span>{item.label}</span>
               </button>
             );
           })}
-        </nav>
-
-        <div className="mt-auto p-6 bg-slate-900 rounded-[2rem] text-white space-y-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Usuari Actiu</p>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-primary font-black">
-              {user.name[0]}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-black truncate">{user.name}</p>
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Administrador</p>
-            </div>
-          </div>
+          {/* Matriu de veus — navigates away */}
+          <button
+            onClick={() => { setSelectedEventId(0); setView('matrix'); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all shrink-0 text-stone-500 hover:text-primary hover:bg-primary/5 bg-white border border-stone-200/80"
+          >
+            <Music size={16} />
+            <span>Matriu de Veus</span>
+          </button>
         </div>
-      </aside>
+      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-8 lg:p-12 flex flex-col gap-12 pb-32 lg:pb-12 max-w-7xl mx-auto w-full">
+      {/* Tab content area */}
+      <div className="flex flex-col gap-8">
+
 
         {/* ── ALERTS TAB ───────────────────────────────────────────────────────── */}
         {activeTab === 'alertes' && (
