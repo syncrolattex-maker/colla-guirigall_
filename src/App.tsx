@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Music, LogOut, X, Pencil, AlertTriangle, Info, Menu, Facebook, Instagram,
+  Music, LogOut, X, Pencil, Info, Menu, Facebook, Instagram,
   Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles, PieChart
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
@@ -661,18 +661,6 @@ export default function App() {
             </button>
           </div>
         </header>
-
-        {/* Global Alert Banner */}
-        {globalAlert && (
-          <div className={`px-4 py-2.5 flex items-center justify-center gap-2.5 text-xs font-bold z-20 border-b ${
-            globalAlert.type === 'danger' ? 'border-red-200 text-red-800 bg-red-50' : 
-            globalAlert.type === 'info' ? 'border-blue-200 text-blue-800 bg-blue-50' : 
-            'border-amber-200 text-amber-800 bg-amber-50'
-          }`}>
-            <AlertTriangle size={15} />
-            <p className="flex-1 text-center">{globalAlert.message}</p>
-          </div>
-        )}
 
         {/* Page Content */}
         <main className={`flex-1 w-full pb-24 lg:pb-12 ${
