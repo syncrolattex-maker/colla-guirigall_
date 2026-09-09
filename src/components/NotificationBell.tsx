@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface AppNotification {
@@ -23,32 +24,29 @@ export default function NotificationBell({ user, onNavigate }: { user: UserData,
 
   const fetchNotifications = async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('userid', user.uid)
-      .order('createdat', { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching notifications:", error);
-    } else {
-      setNotifications(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('notifications')
+        .select('*')
+        .eq('userid', user.uid)
+        .order('createdat', { ascending: false }));
+
+      if (error) {
+        console.error("Error fetching notifications:", error);
+      } else {
+        setNotifications(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching notifications:", e);
     }
   };
 
+  useRealtimeChannels([
+    { name: 'bell-notifications', table: 'notifications', onEvent: fetchNotifications },
+  ]);
+
   useEffect(() => {
     fetchNotifications();
-
-    const channel = supabase
-      .channel('public:notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [user]);
 
   useEffect(() => {

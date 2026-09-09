@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Save, CheckCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface RepertoireMatrixProps {
@@ -54,41 +55,51 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const requestIdRef = useRef(0);
+
   useEffect(() => { fetchEventsList(); }, []);
   useEffect(() => { fetchData(); }, [currentEventId]);
 
   const fetchEventsList = async () => {
-    const { data } = await supabase.from('events').select('id, title').order('date', { ascending: false });
-    setAllEvents(data || []);
+    try {
+      const { data } = await withTimeout(supabase.from('events').select('id, title').order('date', { ascending: false }));
+      setAllEvents(data || []);
+    } catch (e) {
+      console.error('Matrix events list error:', e);
+    }
   };
 
   const fetchData = async () => {
+    const myId = ++requestIdRef.current;
     setLoading(true);
     try {
       let songIds: number[] = [];
       if (currentEventId) {
-        const { data, error } = await supabase.from('events').select('repertoireids').eq('id', currentEventId).single();
+        const { data, error } = await withTimeout(supabase.from('events').select('repertoireids').eq('id', currentEventId).single());
         if (error) throw error;
         songIds = data.repertoireids || [];
       }
+      if (myId !== requestIdRef.current) return;
 
       let songsData: Song[] = [];
       if (!(currentEventId && songIds.length === 0)) {
         let q = supabase.from('songs').select('id, title');
         if (currentEventId && songIds.length > 0) q = q.in('id', songIds);
         else q = q.order('title', { ascending: true });
-        const { data, error } = await q;
+        const { data, error } = await withTimeout(q);
         if (error) throw error;
         songsData = data || [];
       }
+      if (myId !== requestIdRef.current) return;
       if (currentEventId && songIds.length > 0) {
         songsData = songIds.map(id => songsData.find(s => s.id === id)).filter(Boolean) as Song[];
       }
       setSongs(songsData);
 
-      const { data: usersData, error: userError } = await supabase
-        .from('users').select('uid, name, instrument').neq('email', 'syncrolattex@gmail.com');
+      const { data: usersData, error: userError } = await withTimeout(supabase
+        .from('users').select('uid, name, instrument').neq('email', 'syncrolattex@gmail.com'));
       if (userError) throw userError;
+      if (myId !== requestIdRef.current) return;
       const sorted = (usersData || []).sort((a: any, b: any) => {
         const order: Record<string, number> = { 'Dolçaina': 1, 'Tabal': 2 };
         const diff = (order[a.instrument] || 99) - (order[b.instrument] || 99);
@@ -99,8 +110,9 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
       const table = currentEventId ? 'song_assignments' : 'repertoire_assignments';
       const q2 = supabase.from(table).select('*');
       if (currentEventId) q2.eq('event_id', currentEventId);
-      const { data: assignData, error: assignError } = await q2;
+      const { data: assignData, error: assignError } = await withTimeout(q2);
       if (assignError) throw assignError;
+      if (myId !== requestIdRef.current) return;
       const map: Record<string, Record<number, string>> = {};
       assignData.forEach((a: any) => {
         if (!map[a.user_id]) map[a.user_id] = {};
@@ -110,7 +122,9 @@ export default function RepertoireMatrix({ user, eventId, onBack }: RepertoireMa
     } catch (err) {
       console.error('Matrix fetch error:', err);
     } finally {
-      setLoading(false);
+      // Solo el último request puede apagar el loading: evita spinner eterno
+      // al cambiar rápido de pestaña.
+      if (myId === requestIdRef.current) setLoading(false);
     }
   };
 

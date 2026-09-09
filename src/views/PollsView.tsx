@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Clock, CheckCircle2, Users, AlertTriangle, ShoppingBag, Package, Plus, Minus, Utensils } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 export interface Poll {
@@ -47,10 +48,12 @@ export default function PollsView({ user }: PollsViewProps) {
 
   const fetchData = async () => {
     try {
-      const { data: pData } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
-      const { data: oData } = await supabase.from('poll_options').select('*');
-      const { data: vData } = await supabase.from('poll_votes').select('*');
-      const { data: uData } = await supabase.from('users').select('*');
+      const [{ data: pData }, { data: oData }, { data: vData }, { data: uData }] = await withTimeout(Promise.all([
+        supabase.from('polls').select('*').order('created_at', { ascending: false }),
+        supabase.from('poll_options').select('*'),
+        supabase.from('poll_votes').select('*'),
+        supabase.from('users').select('*'),
+      ]));
 
       if (pData) setPolls(pData);
       if (oData) setOptions(oData);
@@ -63,24 +66,15 @@ export default function PollsView({ user }: PollsViewProps) {
     }
   };
 
+  useAppFocusRefresh(fetchData);
+
+  useRealtimeChannels([
+    { name: 'polls-votes', table: 'poll_votes', onEvent: fetchData },
+    { name: 'polls-list', table: 'polls', onEvent: fetchData },
+  ]);
+
   useEffect(() => {
     fetchData();
-    const onFocus = () => fetchData();
-    window.addEventListener('app-focus', onFocus);
-
-    const votesChannel = supabase.channel('polls:votes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, fetchData)
-      .subscribe();
-      
-    const pollsChannel = supabase.channel('polls:polls')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'polls' }, fetchData)
-      .subscribe();
-
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(votesChannel);
-      supabase.removeChannel(pollsChannel);
-    };
   }, []);
 
   const handleVote = async (pollId: number, optionId: number) => {

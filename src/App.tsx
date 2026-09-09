@@ -4,6 +4,7 @@ import {
   Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles, PieChart
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { withTimeout } from './utils/viewHelpers';
 import { Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
@@ -53,8 +54,14 @@ export default function App() {
   }, [location.pathname]);
 
   useEffect(() => {
+    let lastHidden = 0;
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        lastHidden = Date.now();
+      } else if (document.visibilityState === 'visible') {
+        // Solo refrescar si lleva oculta >2s: evita tormentas al
+        // cambiar rápido entre pestañas internas en desktop.
+        if (Date.now() - lastHidden < 2000) return;
         window.dispatchEvent(new Event('app-focus'));
       }
     };
@@ -120,20 +127,24 @@ export default function App() {
 
     // Global Alert fetch and subscription
     const fetchAlert = async () => {
-      const { data } = await supabase
-        .from('global_alerts')
-        .select('*')
-        .eq('id', 1)
-        .single();
-      if (data && mountedRef.current) {
-        setGlobalAlert(data.active ? data : null);
+      try {
+        const { data } = await withTimeout(supabase
+          .from('global_alerts')
+          .select('*')
+          .eq('id', 1)
+          .single());
+        if (data && mountedRef.current) {
+          setGlobalAlert(data.active ? data : null);
+        }
+      } catch (e) {
+        console.error("Alert fetch error:", e);
       }
     };
 
     fetchAlert();
 
     const alertChannel = supabase
-      .channel('global_alerts_realtime')
+      .channel(`global_alerts_realtime:${Math.random().toString(36).slice(2, 8)}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -191,6 +202,7 @@ export default function App() {
     return () => {
       mountedRef.current = false;
       if (authSubscription) authSubscription.unsubscribe();
+      supabase.removeChannel(alertChannel).catch(() => {});
     };
   }, []);
 

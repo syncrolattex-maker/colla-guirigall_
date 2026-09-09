@@ -25,6 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface RehearsalProps {
@@ -95,82 +96,96 @@ export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
   const [mobileActiveTab, setMobileActiveTab] = useState<'colleta' | 'cambra'>('colleta');
 
   const fetchSongs = async () => {
-    const { data, error } = await supabase.from('songs').select('*');
-    if (error) console.error("Error fetching songs:", error);
-    else setAllSongs(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase.from('songs').select('*'));
+      if (error) console.error("Error fetching songs:", error);
+      else setAllSongs(data || []);
+    } catch (e) {
+      console.error("Error fetching songs:", e);
+    }
   };
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase.from('users').select('uid, name, instrument, email');
-    if (error) console.error("Error fetching users:", error);
-    else {
-      const filteredUsers = (data || []).filter(u => (u as any).email !== 'syncrolattex@gmail.com');
-      setUsers(filteredUsers as DBUser[]);
+    try {
+      const { data, error } = await withTimeout(supabase.from('users').select('uid, name, instrument, email'));
+      if (error) console.error("Error fetching users:", error);
+      else {
+        const filteredUsers = (data || []).filter(u => (u as any).email !== 'syncrolattex@gmail.com');
+        setUsers(filteredUsers as DBUser[]);
+      }
+    } catch (e) {
+      console.error("Error fetching users:", e);
     }
   };
 
   const fetchNextRehearsal = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .or(`type.ilike.Assaig%,type.eq.Intercanvi,type.eq.Final de curs,type.eq.Actuació`)
-      .gte('date', new Date(new Date().getTime() - 86400000).toISOString())
-      .order('date', { ascending: true });
-      
-    if (error) console.error("Error fetching events:", error);
-    else {
-      setRehearsals(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('events')
+        .select('*')
+        .or(`type.ilike.Assaig%,type.eq.Intercanvi,type.eq.Final de curs,type.eq.Actuació`)
+        .gte('date', new Date(new Date().getTime() - 86400000).toISOString())
+        .order('date', { ascending: true }));
+
+      if (error) console.error("Error fetching events:", error);
+      else {
+        setRehearsals(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching events:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  const refreshAll = () => {
+    fetchSongs();
+    fetchUsers();
+    fetchNextRehearsal();
+  };
+
+  useAppFocusRefresh(refreshAll);
+
+  useRealtimeChannels([
+    { name: 'rehearsal-songs', table: 'songs', onEvent: fetchSongs },
+    { name: 'rehearsal-events', table: 'events', onEvent: fetchNextRehearsal },
+    { name: 'rehearsal-attendances', table: 'attendances', onEvent: () => { fetchAllAttendances(); fetchAttendance(); } },
+  ]);
 
   useEffect(() => {
     fetchSongs();
     fetchUsers();
     fetchNextRehearsal();
-
-    const onFocus = () => {
-      fetchSongs();
-      fetchUsers();
-      fetchNextRehearsal();
-    };
-    window.addEventListener('app-focus', onFocus);
-
-    const songsChannel = supabase.channel('public:songs').on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, fetchSongs).subscribe();
-    const eventsChannel = supabase.channel('public:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchNextRehearsal).subscribe();
-
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(songsChannel);
-      supabase.removeChannel(eventsChannel);
-    };
   }, []);
 
   const fetchAllAttendances = async () => {
     if (rehearsals.length === 0) return;
-    const { data, error } = await supabase
-      .from('attendances')
-      .select('eventid, userid, status')
-      .in('eventid', rehearsals.map(r => r.id))
-      .eq('status', 'Vull anar-hi');
-      
-    if (error) {
-      console.error("Error fetching all attendances:", error);
-    } else {
-      setAllAttendances(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('attendances')
+        .select('eventid, userid, status')
+        .in('eventid', rehearsals.map(r => r.id))
+        .eq('status', 'Vull anar-hi'));
+
+      if (error) {
+        console.error("Error fetching all attendances:", error);
+      } else {
+        setAllAttendances(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching all attendances:", e);
     }
   };
 
-  useEffect(() => {
+  const fetchAttendance = async () => {
     if (rehearsals.length === 0) return;
-
-    const fetchAttendance = async () => {
-      const { data, error } = await supabase
+    try {
+      const { data, error } = await withTimeout(supabase
         .from('attendances')
         .select('eventid, status')
         .in('eventid', rehearsals.map(r => r.id))
-        .eq('userid', user.uid);
-        
+        .eq('userid', user.uid));
+
       if (error) {
         console.error("Error fetching attendances:", error);
       } else {
@@ -180,25 +195,16 @@ export default function Rehearsal({ user, onNavigate }: RehearsalProps) {
         });
         setAttendances(attMap);
       }
-    };
+    } catch (e) {
+      console.error("Error fetching attendances:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (rehearsals.length === 0) return;
 
     fetchAttendance();
     fetchAllAttendances();
-
-    const attendancesChannel = supabase.channel('public:attendances_rehearsals')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'attendances' 
-      }, () => {
-        fetchAttendance();
-        fetchAllAttendances();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(attendancesChannel);
-    };
   }, [rehearsals, user.uid]);
 
   const handleAttendance = async (eventId: number, status: 'Vull anar-hi' | 'No puc') => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils, ArrowLeft, Download, RotateCcw, Sparkles, MessageCircle, Clock, Search, MapPin } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface AdminProps {
@@ -439,30 +440,34 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   const [allMemberActCounts, setAllMemberActCounts] = useState<Record<string, number>>({});
 
   const fetchEvents = async () => {
-    const now = new Date().getTime();
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .or('type.ilike.Assaig%,type.eq.Intercanvi,type.eq.Final de curs,type.eq.Actuació')
-      .gte('date', new Date(now - 86400000).toISOString())
-      .order('date', { ascending: true });
-    if (error) console.error("Error fetching events:", error);
-    else {
-      setEvents(data || []);
-      if (data && data.length > 0 && !selectedEventId) {
-        const nowIso = new Date().toISOString();
-        const nextEvent = data.find(e => e.date >= nowIso) || data[data.length - 1];
-        handleEventSelection(nextEvent.id);
+    try {
+      const now = new Date().getTime();
+      const { data, error } = await withTimeout(supabase
+        .from('events')
+        .select('*')
+        .or('type.ilike.Assaig%,type.eq.Intercanvi,type.eq.Final de curs,type.eq.Actuació')
+        .gte('date', new Date(now - 86400000).toISOString())
+        .order('date', { ascending: true }));
+      if (error) console.error("Error fetching events:", error);
+      else {
+        setEvents(data || []);
+        if (data && data.length > 0 && !selectedEventId) {
+          const nowIso = new Date().toISOString();
+          const nextEvent = data.find(e => e.date >= nowIso) || data[data.length - 1];
+          handleEventSelection(nextEvent.id);
+        }
       }
+    } catch (e) {
+      console.error("Error fetching events:", e);
     }
   };
 
   const fetchMemberActCounts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from('attendances')
         .select('userid, eventid, convocat, attended, events(type, date)')
-        .or('convocat.eq.true,attended.eq.true');
+        .or('convocat.eq.true,attended.eq.true'));
       if (error) {
         console.error("Error fetching member act counts:", error);
         return;
@@ -480,65 +485,82 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   };
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) console.error("Error fetching members:", error);
-    else {
-      // Filter out the superadmin from the list
-      const filteredData = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
-      setMembers(filteredData.map(d => ({
-        uid: d.uid,
-        name: d.name,
-        email: d.email || '',
-        role: d.role,
-        instrument: d.instrument || 'Sense assignar',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name)}&background=d44211&color=fff`,
-        is_experienced: !!d.is_experienced
-      })));
+    try {
+      const { data, error } = await withTimeout(supabase.from('users').select('*'));
+      if (error) console.error("Error fetching members:", error);
+      else {
+        // Filter out the superadmin from the list
+        const filteredData = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
+        setMembers(filteredData.map(d => ({
+          uid: d.uid,
+          name: d.name,
+          email: d.email || '',
+          role: d.role,
+          instrument: d.instrument || 'Sense assignar',
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name)}&background=d44211&color=fff`,
+          is_experienced: !!d.is_experienced
+        })));
+      }
+    } catch (e) {
+      console.error("Error fetching members:", e);
     }
   };
 
   const fetchAttendances = async () => {
     if (!selectedEventId) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from('attendances')
-      .select('*')
-      .eq('eventid', selectedEventId);
-    if (error) console.error("Error fetching attendances:", error);
-    else {
-      const attendanceData: Record<string, {status: string, convocat: boolean, note?: string}> = {};
-      data?.forEach(d => {
-        attendanceData[d.userid] = { status: d.status, convocat: d.convocat || false, note: d.note || '' };
-      });
-      setAttendances(attendanceData);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('attendances')
+        .select('*')
+        .eq('eventid', selectedEventId));
+      if (error) console.error("Error fetching attendances:", error);
+      else {
+        const attendanceData: Record<string, {status: string, convocat: boolean, note?: string}> = {};
+        data?.forEach(d => {
+          attendanceData[d.userid] = { status: d.status, convocat: d.convocat || false, note: d.note || '' };
+        });
+        setAttendances(attendanceData);
+      }
+    } catch (e) {
+      console.error("Error fetching attendances:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchGlobalAlert = async () => {
-    const { data } = await supabase.from('global_alerts').select('*').eq('id', 1).single();
-    if (data) setGlobalAlert(data);
+    try {
+      const { data } = await withTimeout(supabase.from('global_alerts').select('*').eq('id', 1).single());
+      if (data) setGlobalAlert(data);
+    } catch (e) {
+      console.error("Error fetching alert:", e);
+    }
   };
 
   const fetchAdminPolls = async () => {
-    const { data } = await supabase.from('polls').select('*').order('created_at', { ascending: false });
-    if (data) setAdminPolls(data);
+    try {
+      const { data } = await withTimeout(supabase.from('polls').select('*').order('created_at', { ascending: false }));
+      if (data) setAdminPolls(data);
+    } catch (e) {
+      console.error("Error fetching admin polls:", e);
+    }
   };
   
   const fetchPollDetails = async () => {
     try {
-      const { data: oData, error: oErr } = await supabase.from('poll_options').select('*');
+      const { data: oData, error: oErr } = await withTimeout(supabase.from('poll_options').select('*'));
       if (oErr) console.error("Error fetching poll options:", oErr);
       
       let vData = null;
       try {
-        const res = await supabase.from('poll_votes').select('*, users(name, instrument)');
+        const res = await withTimeout(supabase.from('poll_votes').select('*, users(name, instrument)'));
         if (res.data) vData = res.data;
       } catch (e) {
         // Fallback
       }
 
       if (!vData) {
-        const { data: rawVotes } = await supabase.from('poll_votes').select('*');
+        const { data: rawVotes } = await withTimeout(supabase.from('poll_votes').select('*'));
         vData = (rawVotes || []).map((v: any) => ({
           ...v,
           users: members.find(m => m.uid === v.user_id) || { name: 'Músic', instrument: '' }
@@ -551,6 +573,25 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     }
   };
 
+  const refreshAdminAll = () => {
+    fetchEvents();
+    fetchMembers();
+    fetchMemberActCounts();
+    fetchGlobalAlert();
+    fetchAdminPolls();
+    fetchPollDetails();
+  };
+
+  useAppFocusRefresh(refreshAdminAll);
+
+  useRealtimeChannels([
+    { name: 'adm-events', table: 'events', onEvent: fetchEvents },
+    { name: 'adm-users', table: 'users', onEvent: fetchMembers },
+    { name: 'adm-polls', table: 'polls', onEvent: fetchAdminPolls },
+    { name: 'adm-votes', table: 'poll_votes', onEvent: fetchPollDetails },
+    { name: 'adm-attendances', table: 'attendances', onEvent: fetchAttendances },
+  ]);
+
   useEffect(() => {
     fetchEvents();
     fetchMembers();
@@ -558,28 +599,6 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     fetchGlobalAlert();
     fetchAdminPolls();
     fetchPollDetails();
-    
-    const onFocus = () => {
-      fetchEvents();
-      fetchMembers();
-      fetchMemberActCounts();
-      fetchGlobalAlert();
-      fetchAdminPolls();
-      fetchPollDetails();
-    };
-    window.addEventListener('app-focus', onFocus);
-    
-    const eventsChannel = supabase.channel('adm:events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
-    const usersChannel = supabase.channel('adm:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchMembers).subscribe();
-    const pollsChannel = supabase.channel('adm:polls').on('postgres_changes', { event: '*', schema: 'public', table: 'polls' }, fetchAdminPolls).subscribe();
-    const votesChannel = supabase.channel('adm:votes').on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, fetchPollDetails).subscribe();
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(eventsChannel);
-      supabase.removeChannel(usersChannel);
-      supabase.removeChannel(pollsChannel);
-      supabase.removeChannel(votesChannel);
-    };
   }, []);
 
   const handleSaveAlert = async () => {
@@ -658,15 +677,6 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   useEffect(() => {
     setAttendances({}); // Clear stale data when switching events
     fetchAttendances();
-    
-    const onFocus = () => fetchAttendances();
-    window.addEventListener('app-focus', onFocus);
-    
-    const attendancesChannel = supabase.channel('adm:attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
-    return () => { 
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(attendancesChannel); 
-    };
   }, [selectedEventId]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────

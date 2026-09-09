@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface CalendarProps {
@@ -76,60 +77,98 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   });
 
   const fetchEvents = async () => {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .order('date', { ascending: true });
-    if (error) console.error("Error fetching events:", error);
-    else setEvents(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true }));
+      if (error) console.error("Error fetching events:", error);
+      else setEvents(data || []);
+    } catch (e) {
+      console.error("Error fetching events:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchAttendances = async () => {
-    const { data, error } = await supabase.from('attendances').select('*');
-    if (error) console.error("Error fetching attendances:", error);
-    else {
-      const attData: Record<number, Record<string, Attendance>> = {};
-      data?.forEach(att => {
-        if (!attData[att.eventid]) attData[att.eventid] = {};
-        attData[att.eventid][att.userid] = att;
-      });
-      setAllAttendances(attData);
+    try {
+      const { data, error } = await withTimeout(supabase.from('attendances').select('*'));
+      if (error) console.error("Error fetching attendances:", error);
+      else {
+        const attData: Record<number, Record<string, Attendance>> = {};
+        data?.forEach(att => {
+          if (!attData[att.eventid]) attData[att.eventid] = {};
+          attData[att.eventid][att.userid] = att;
+        });
+        setAllAttendances(attData);
+      }
+    } catch (e) {
+      console.error("Error fetching attendances:", e);
     }
   };
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) console.error("Error fetching users:", error);
-    else {
-      // Filter out the superadmin from the list
-      const filteredUsers = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
-      setUsers(filteredUsers);
+    try {
+      const { data, error } = await withTimeout(supabase.from('users').select('*'));
+      if (error) console.error("Error fetching users:", error);
+      else {
+        // Filter out the superadmin from the list
+        const filteredUsers = (data || []).filter(u => u.email !== 'syncrolattex@gmail.com');
+        setUsers(filteredUsers);
+      }
+    } catch (e) {
+      console.error("Error fetching users:", e);
     }
   };
 
   const fetchSongs = async () => {
-    const { data, error } = await supabase.from('songs').select('id, title');
-    if (error) console.error("Error fetching songs:", error);
-    else setSongs(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase.from('songs').select('id, title'));
+      if (error) console.error("Error fetching songs:", error);
+      else setSongs(data || []);
+    } catch (e) {
+      console.error("Error fetching songs:", e);
+    }
   };
 
   const fetchAssignments = async () => {
-    const { data, error } = await supabase
-      .from('song_assignments')
-      .select('event_id, song_id, voice')
-      .eq('user_id', user.uid);
-    
-    if (error) console.error("Error fetching assignments:", error);
-    else {
-      const assignMap: Record<number, Record<number, string>> = {};
-      data?.forEach(a => {
-        if (!assignMap[a.event_id]) assignMap[a.event_id] = {};
-        assignMap[a.event_id][a.song_id] = a.voice;
-      });
-      setUserAssignments(assignMap);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('song_assignments')
+        .select('event_id, song_id, voice')
+        .eq('user_id', user.uid));
+
+      if (error) console.error("Error fetching assignments:", error);
+      else {
+        const assignMap: Record<number, Record<number, string>> = {};
+        data?.forEach(a => {
+          if (!assignMap[a.event_id]) assignMap[a.event_id] = {};
+          assignMap[a.event_id][a.song_id] = a.voice;
+        });
+        setUserAssignments(assignMap);
+      }
+    } catch (e) {
+      console.error("Error fetching assignments:", e);
     }
   };
+
+  const refreshAll = () => {
+    fetchEvents();
+    fetchAttendances();
+    fetchUsers();
+    fetchSongs();
+    fetchAssignments();
+  };
+
+  useAppFocusRefresh(refreshAll);
+
+  useRealtimeChannels([
+    { name: 'calendar-view-events', table: 'events', onEvent: fetchEvents },
+    { name: 'calendar-view-attendances', table: 'attendances', onEvent: fetchAttendances },
+    { name: 'calendar-view-users', table: 'users', onEvent: fetchUsers },
+    { name: 'calendar-view-assignments', table: 'song_assignments', onEvent: fetchAssignments },
+  ]);
 
   useEffect(() => {
     fetchEvents();
@@ -137,28 +176,6 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     fetchUsers();
     fetchSongs();
     fetchAssignments();
-
-    const onFocus = () => {
-      fetchEvents();
-      fetchAttendances();
-      fetchUsers();
-      fetchSongs();
-      fetchAssignments();
-    };
-    window.addEventListener('app-focus', onFocus);
-
-    const eventsChannel = supabase.channel('calendar-view-events').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents).subscribe();
-    const attendancesChannel = supabase.channel('calendar-view-attendances').on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances).subscribe();
-    const usersChannel = supabase.channel('calendar-view-users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchUsers).subscribe();
-    const assignmentsChannel = supabase.channel('calendar-view-assignments').on('postgres_changes', { event: '*', schema: 'public', table: 'song_assignments' }, fetchAssignments).subscribe();
-
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(eventsChannel);
-      supabase.removeChannel(attendancesChannel);
-      supabase.removeChannel(usersChannel);
-      supabase.removeChannel(assignmentsChannel);
-    };
   }, []);
 
   useEffect(() => {

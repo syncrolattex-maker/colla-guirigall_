@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, FileText, Headphones, PlayCircle, Plus, X, Upload, Play, Pause, Volume2, SlidersHorizontal, ExternalLink, Download, Disc, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface RepertoireProps {
@@ -52,64 +53,58 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   const [activeVideo, setActiveVideo] = useState<{url: string, title: string} | null>(null);
 
   const fetchSongs = async () => {
-    const { data, error } = await supabase
-      .from('songs')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching songs:", error);
-    } else {
-      setSongs(data || []);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('songs')
+        .select('*')
+        .order('created_at', { ascending: false }));
+
+      if (error) {
+        console.error("Error fetching songs:", error);
+      } else {
+        setSongs(data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching songs:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchAssignments = async () => {
-    const { data, error } = await supabase
-      .from('repertoire_assignments')
-      .select('song_id, voice')
-      .eq('user_id', user.uid);
-    
-    if (error) {
-      console.error("Error fetching assignments:", error);
-    } else {
-      const map: Record<number, string> = {};
-      data?.forEach(a => { map[a.song_id] = a.voice; });
-      setUserAssignments(map);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('repertoire_assignments')
+        .select('song_id, voice')
+        .eq('user_id', user.uid));
+
+      if (error) {
+        console.error("Error fetching assignments:", error);
+      } else {
+        const map: Record<number, string> = {};
+        data?.forEach(a => { map[a.song_id] = a.voice; });
+        setUserAssignments(map);
+      }
+    } catch (e) {
+      console.error("Error fetching assignments:", e);
     }
   };
 
+  const refreshAll = () => {
+    fetchSongs();
+    fetchAssignments();
+  };
+
+  useAppFocusRefresh(refreshAll);
+
+  useRealtimeChannels([
+    { name: 'repertoire-songs', table: 'songs', onEvent: fetchSongs },
+    { name: 'repertoire-assignments', table: 'repertoire_assignments', filter: `user_id=eq.${user.uid}`, onEvent: fetchAssignments },
+  ]);
+
   useEffect(() => {
     fetchSongs();
-
-    const onFocus = () => {
-      fetchSongs();
-      fetchAssignments();
-    };
-    window.addEventListener('app-focus', onFocus);
-
-    // Subscribe to changes
-    const channel = supabase
-      .channel('public:songs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => {
-        fetchSongs();
-      })
-      .subscribe();
-
     fetchAssignments();
-    const assignChannel = supabase
-      .channel('public:repertoire_assignments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_assignments', filter: `user_id=eq.${user.uid}` }, () => {
-        fetchAssignments();
-      })
-      .subscribe();
-
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(channel);
-      supabase.removeChannel(assignChannel);
-    };
   }, []);
 
   const sanitizeFilename = (filename: string) => {

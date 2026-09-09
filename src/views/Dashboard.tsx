@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
 import { getTypeColors } from '../utils/eventColors';
 
@@ -34,65 +35,64 @@ export default function Dashboard({ setView, user }: DashboardProps) {
   const [loading, setLoading] = useState(true);
 
   const fetchEvents = async () => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .gte('date', now.toISOString())
-      .order('date', { ascending: true });
-      
-    if (error) {
-      console.error("Error fetching events:", error);
-    } else {
-      setUpcomingEvents((data || []).slice(0, 3));
+    try {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      const { data, error } = await withTimeout(supabase
+        .from('events')
+        .select('*')
+        .gte('date', now.toISOString())
+        .order('date', { ascending: true }));
+
+      if (error) {
+        console.error("Error fetching events:", error);
+      } else {
+        setUpcomingEvents((data || []).slice(0, 3));
+      }
+    } catch (e) {
+      console.error("Error fetching events:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchAttendances = async () => {
-    const { data, error } = await supabase
-      .from('attendances')
-      .select('*')
-      .eq('userid', user.uid);
-      
-    if (error) {
-      console.error("Error fetching attendances:", error);
-    } else {
-      const attData: Record<number, Attendance> = {};
-      data?.forEach(att => {
-        attData[att.eventid] = att;
-      });
-      setAttendances(attData);
+    try {
+      const { data, error } = await withTimeout(supabase
+        .from('attendances')
+        .select('*')
+        .eq('userid', user.uid));
+
+      if (error) {
+        console.error("Error fetching attendances:", error);
+      } else {
+        const attData: Record<number, Attendance> = {};
+        data?.forEach(att => {
+          attData[att.eventid] = att;
+        });
+        setAttendances(attData);
+      }
+    } catch (e) {
+      console.error("Error fetching attendances:", e);
     }
   };
+
+  const refreshAll = () => {
+    fetchEvents();
+    fetchAttendances();
+  };
+
+  useAppFocusRefresh(refreshAll);
+
+  useRealtimeChannels([
+    { name: 'dashboard-events', table: 'events', onEvent: fetchEvents },
+    { name: 'dashboard-attendances', table: 'attendances', onEvent: fetchAttendances },
+  ]);
 
   useEffect(() => {
     fetchEvents();
     fetchAttendances();
-
-    const onFocus = () => {
-      fetchEvents();
-      fetchAttendances();
-    };
-    window.addEventListener('app-focus', onFocus);
-
-    const eventsChannel = supabase
-      .channel('public:events')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents)
-      .subscribe();
-
-    const attendancesChannel = supabase
-      .channel('public:attendances')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendances' }, fetchAttendances)
-      .subscribe();
-
-    return () => {
-      window.removeEventListener('app-focus', onFocus);
-      supabase.removeChannel(eventsChannel);
-      supabase.removeChannel(attendancesChannel);
-    };
   }, [user.uid]);
 
   const handleAttendance = async (eventId: number, status: 'Vull anar-hi' | 'No puc') => {
