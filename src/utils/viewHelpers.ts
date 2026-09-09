@@ -18,8 +18,9 @@ export async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T
 }
 
 // Listener de 'app-focus' con throttle: evita tormentas de refetch al
-// volver a la pestaña o al navegar rápido entre vistas (causa del hang en desktop).
-export function useAppFocusRefresh(cb: () => void, minIntervalMs = 5000) {
+// volver a la pestaña o al navegar rápido entre vistas.
+// Throttle reducido de 5000ms a 1000ms para mejor respuesta al cambiar de pestaña.
+export function useAppFocusRefresh(cb: () => void, minIntervalMs = 1000) {
   const cbRef = useRef(cb);
   cbRef.current = cb;
   const lastRef = useRef(0);

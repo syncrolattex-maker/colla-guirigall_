@@ -343,8 +343,8 @@ export default function App() {
       <aside className="hidden lg:flex flex-col w-64 xl:w-72 bg-white border-r border-stone-200/80 fixed left-0 top-0 bottom-0 z-30 overflow-y-auto">
         {/* Brand Header */}
         <div className="p-6 border-b border-stone-100 flex items-center gap-3.5 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 rounded-2xl bg-[#c2410c] text-white flex items-center justify-center font-black text-lg shadow-md shadow-[#c2410c]/20">
-            G
+          <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-[#c2410c]/20">
+            <img src="/logo.png" alt="Colla Guirigall" className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-[#c2410c] leading-none mb-1">
@@ -573,8 +573,8 @@ export default function App() {
         {/* Mobile Header */}
         <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-md border-b border-stone-200/80">
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-8 h-8 rounded-xl bg-[#c2410c] text-white flex items-center justify-center font-black text-sm">
-              G
+            <div className="w-8 h-8 rounded-xl overflow-hidden">
+              <img src="/logo.png" alt="Colla Guirigall" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="text-[9px] font-black uppercase tracking-widest text-[#c2410c] leading-none">Colla Guirigall</p>
