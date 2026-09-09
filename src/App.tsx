@@ -284,6 +284,7 @@ export default function App() {
       alert("Estàs en mode desenvolupament. El login està desactivat.");
       return;
     }
+    setIsProfileOpen(false);
     await supabase.auth.signOut();
   };
 
@@ -781,7 +782,14 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-stone-100 bg-stone-50/50 flex justify-end">
+            <div className="p-4 border-t border-stone-100 bg-stone-50/50 flex items-center justify-between">
+              <button
+                onClick={handleLogout}
+                className="px-5 py-2.5 bg-red-50 text-red-600 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2"
+              >
+                <LogOut size={14} />
+                Tancar sessió
+              </button>
               <button onClick={() => setIsProfileOpen(false)} className="px-5 py-2.5 bg-[#c2410c] text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-[#9a3412] transition-colors shadow-sm">
                 Fet
               </button>
