@@ -503,15 +503,29 @@ export default function App() {
           )}
 
           {/* Widget: Avisos de Direcció */}
-          <div className="p-3.5 bg-amber-50/70 border border-amber-200/60 rounded-2xl space-y-1">
-            <div className="flex items-center gap-2 text-amber-800 font-bold text-[11px]">
-              <Info size={14} />
-              <span>Avisos de Direcció</span>
+          {globalAlert && (
+            <div className={`p-3.5 rounded-2xl space-y-1 border ${
+              globalAlert.type === 'danger' ? 'bg-red-50/70 border-red-200/70' :
+              globalAlert.type === 'info' ? 'bg-blue-50/70 border-blue-200/70' :
+              'bg-amber-50/70 border-amber-200/70'
+            }`}>
+              <div className={`flex items-center gap-2 font-bold text-[11px] ${
+                globalAlert.type === 'danger' ? 'text-red-700' :
+                globalAlert.type === 'info' ? 'text-blue-700' :
+                'text-amber-800'
+              }`}>
+                <Info size={14} />
+                <span>Avisos de Direcció</span>
+              </div>
+              <p className={`text-[10px] leading-relaxed ${
+                globalAlert.type === 'danger' ? 'text-red-800/80' :
+                globalAlert.type === 'info' ? 'text-blue-800/80' :
+                'text-amber-900/80'
+              }`}>
+                {globalAlert.message}
+              </p>
             </div>
-            <p className="text-[10px] text-amber-900/80 leading-relaxed">
-              Recordeu portar la canya nova i les baquetes de recanvi per a la prova acústica.
-            </p>
-          </div>
+          )}
         </nav>
 
         {/* User Card Bottom */}
