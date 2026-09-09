@@ -4,7 +4,7 @@ import {
   Home, Calendar, BookOpen, Users, BarChart3, Settings, Bell, User, Clock, MapPin, ChevronRight, Sparkles, PieChart
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { withTimeout } from './utils/viewHelpers';
+import { withTimeout, useRealtimeChannels } from './utils/viewHelpers';
 import { Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './views/Dashboard';
@@ -34,6 +34,14 @@ export interface GlobalAlert {
   type: 'warning' | 'info' | 'danger';
 }
 
+export interface NextEvent {
+  id: number;
+  title: string;
+  type: string;
+  date: string;
+  location: string;
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,6 +54,7 @@ export default function App() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [globalAlert, setGlobalAlert] = useState<GlobalAlert | null>(null);
+  const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
   const DEV_MODE = false; // Set to true only for local testing without Supabase Auth
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
@@ -267,6 +276,36 @@ export default function App() {
     }
   };
 
+  const fetchNextEvent = async () => {
+    try {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const { data, error } = await withTimeout(supabase
+        .from('events')
+        .select('id, title, type, date, location')
+        .gte('date', now.toISOString())
+        .order('date', { ascending: true })
+        .limit(1));
+      if (error) {
+        console.error("Error fetching next event:", error);
+      } else if (data && data.length > 0) {
+        setNextEvent(data[0] as NextEvent);
+      } else {
+        setNextEvent(null);
+      }
+    } catch (e) {
+      console.error("Error fetching next event:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchNextEvent();
+  }, []);
+
+  useRealtimeChannels([
+    { name: 'app-next-event', table: 'events', onEvent: fetchNextEvent },
+  ]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8f6f6]">
@@ -361,15 +400,30 @@ export default function App() {
         <div className="p-4 mx-4 mt-4 bg-stone-50/80 border border-stone-200/70 rounded-2xl space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Propera trobada</span>
-            <span className="px-2 py-0.5 bg-[#c2410c]/10 text-[#c2410c] text-[9px] font-black rounded-full uppercase">Dijous</span>
+            {nextEvent && (
+              <span className="px-2 py-0.5 bg-[#c2410c]/10 text-[#c2410c] text-[9px] font-black rounded-full uppercase capitalize">
+                {new Date(nextEvent.date).toLocaleDateString('ca-ES', { weekday: 'long' })}
+              </span>
+            )}
           </div>
-          <p className="text-xs font-black text-stone-800">Assaig Setmanal</p>
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
-            <Clock size={12} className="text-stone-400" /> 18:30h - 21:30h
-          </div>
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
-            <MapPin size={12} className="text-stone-400" /> Local de la Colla
-          </div>
+          {nextEvent ? (
+            <>
+              <p className="text-xs font-black text-stone-800">{nextEvent.title}</p>
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
+                <Calendar size={12} className="text-stone-400" />
+                {new Date(nextEvent.date).toLocaleDateString('ca-ES', { day: 'numeric', month: 'long' })}
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
+                <Clock size={12} className="text-stone-400" />
+                {new Date(nextEvent.date).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })} h
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-stone-500">
+                <MapPin size={12} className="text-stone-400" /> {nextEvent.location || 'Local de la Colla'}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs font-black text-stone-800">Sense actuacions programades</p>
+          )}
         </div>
 
         {/* Navigation Menu */}
