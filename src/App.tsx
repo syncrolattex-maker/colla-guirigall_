@@ -662,6 +662,18 @@ export default function App() {
           </div>
         </header>
 
+        {/* Avisos de Direcció - Mòbil */}
+        {globalAlert && (
+          <div className={`lg:hidden px-4 py-2.5 flex items-start gap-2.5 text-xs font-bold z-20 border-b ${
+            globalAlert.type === 'danger' ? 'border-red-200 text-red-800 bg-red-50' : 
+            globalAlert.type === 'info' ? 'border-blue-200 text-blue-800 bg-blue-50' : 
+            'border-amber-200 text-amber-800 bg-amber-50'
+          }`}>
+            <Info size={15} className="flex-shrink-0 mt-0.5" />
+            <p className="flex-1 leading-snug">{globalAlert.message}</p>
+          </div>
+        )}
+
         {/* Page Content */}
         <main className={`flex-1 w-full pb-24 lg:pb-12 ${
           location.pathname.startsWith('/matriu')
