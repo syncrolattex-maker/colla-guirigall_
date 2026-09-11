@@ -355,23 +355,30 @@ export default function App() {
       return;
     }
     setIsProfileOpen(false);
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      navigate('/');
+    } catch (error) {
+      console.error("Error signing out:", error);
+      alert(`Error en tancar la sessió: ${(error as any)?.message || error}`);
+    }
   };
 
-  const handleUpdateProfile = async (updates: Partial<UserData>) => {
+const handleUpdateProfile = async (updates: Partial<UserData>) => {
     if (!user) return;
     setUpdatingProfile(true);
     try {
-      const { error } = await supabase
+      const { error } = await withTimeout(supabase
         .from('users')
         .update(updates)
-        .eq('uid', user.uid);
+        .eq('uid', user.uid));
         
       if (error) throw error;
       setUser({ ...user, ...updates });
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Error en actualitzar el perfil.");
+      alert(`Error en actualitzar el perfil: ${(error as any)?.message || error}`);
     } finally {
       setUpdatingProfile(false);
     }

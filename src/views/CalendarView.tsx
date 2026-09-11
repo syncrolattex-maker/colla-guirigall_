@@ -241,11 +241,11 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
       if (editingEvent) {
         console.log("Updating event...", editingEvent.id);
-        const { error } = await supabase.from('events').update(eventData).eq('id', editingEvent.id);
+        const { error } = await withTimeout(supabase.from('events').update(eventData).eq('id', editingEvent.id));
         if (error) throw error;
       } else {
         console.log("Adding event...");
-        const { data, error } = await supabase.from('events').insert(eventData).select();
+        const { data, error } = await withTimeout(supabase.from('events').insert(eventData).select());
         if (error) throw error;
 
         if (isRehearsal && data && data[0]) {
@@ -258,9 +258,11 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       }
       
       handleCloseAddModal();
+      fetchEvents();
+      fetchAttendances();
     } catch (error) {
       console.error("Error saving event:", error);
-      alert("Hi ha hagut un error en desar l'esdeveniment.");
+      alert(`Hi ha hagut un error en desar l'esdeveniment: ${(error as any)?.message || error}`);
     }
   };
 
@@ -294,12 +296,12 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     if (!confirm("Estàs segur que vols eliminar aquest esdeveniment? També s'esborraran les assistències i notificacions associades.")) return;
     
     try {
-      const { error } = await supabase.from('events').delete().eq('id', eventId);
+      const { error } = await withTimeout(supabase.from('events').delete().eq('id', eventId));
       if (error) throw error;
       // Real-time will handle the list update
     } catch (error) {
       console.error("Error deleting event:", error);
-      alert("Error en eliminar l'esdeveniment.");
+      alert(`Error en eliminar l'esdeveniment: ${(error as any)?.message || error}`);
     }
   };
 
@@ -312,17 +314,17 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       }
 
       const currentConvocat = allAttendances[eventId]?.[targetUserId]?.convocat || false;
-      const { error } = await supabase.from('attendances').upsert({
+      const { error } = await withTimeout(supabase.from('attendances').upsert({
         eventid: eventId,
         userid: targetUserId,
         status,
         convocat: currentConvocat,
         updatedat: new Date().toISOString()
-      }, { onConflict: 'eventid, userid' });
+      }, { onConflict: 'eventid, userid' }));
       if (error) throw error;
     } catch (error) {
       console.error("Error updating attendance:", error);
-      alert("Error en actualitzar l'assistència.");
+      alert(`Error en actualitzar l'assistència: ${(error as any)?.message || error}`);
     }
   };
 
@@ -332,13 +334,13 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
     try {
       // 1. Update event status
-      const { error: updateError } = await supabase
+      const { error: updateError } = await withTimeout(supabase
         .from('events')
         .update({ 
           is_cancelled: true, 
           cancellation_reason: reason || 'L\'esdeveniment ha estat cancel·lat.' 
         })
-        .eq('id', eventId);
+        .eq('id', eventId));
       
       if (updateError) throw updateError;
 
@@ -362,7 +364,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
           send_email: true
         }));
 
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
+        const { error: notifError } = await withTimeout(supabase.from('notifications').insert(notifications));
         if (notifError) console.error("Error sending notifications:", notifError);
       }
 
@@ -370,7 +372,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       fetchEvents();
     } catch (error) {
       console.error("Error cancelling event:", error);
-      alert("Error en cancel·lar l'esdeveniment.");
+      alert(`Error en cancel·lar l'esdeveniment: ${(error as any)?.message || error}`);
     }
   };
 
