@@ -55,6 +55,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [globalAlert, setGlobalAlert] = useState<GlobalAlert | null>(null);
   const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
+  const [attendanceStats, setAttendanceStats] = useState<{ assajos: number; actuacions: number } | null>(null);
   const DEV_MODE = false; // Set to true only for local testing without Supabase Auth
   const ADMIN_EMAILS = ['syncrolattex@gmail.com', 'crentero@gmail.com']; // Authorized administrators
 
@@ -298,9 +299,38 @@ export default function App() {
     }
   };
 
+  const fetchAttendanceStats = async () => {
+    if (!user) return;
+    try {
+      const now = new Date().toISOString();
+      const { data: pastEvents, error: eventsError } = await withTimeout(supabase
+        .from('events')
+        .select('id, type, date')
+        .lt('date', now));
+      if (eventsError) throw eventsError;
+      const { data: myAtts, error: attsError } = await withTimeout(supabase
+        .from('attendances')
+        .select('eventid, attended')
+        .eq('userid', user.uid));
+      if (attsError) throw attsError;
+      const attended = new Set((myAtts || []).filter(a => a.attended).map(a => a.eventid));
+      const calc = (list: any[]) => list.length ? Math.round(list.filter(e => attended.has(e.id)).length / list.length * 100) : 0;
+      setAttendanceStats({
+        assajos: calc((pastEvents || []).filter(e => e.type.startsWith('Assaig'))),
+        actuacions: calc((pastEvents || []).filter(e => e.type === 'Actuació')),
+      });
+    } catch (e) {
+      console.error("Error fetching attendance stats:", e);
+    }
+  };
+
   useEffect(() => {
     fetchNextEvent();
   }, []);
+
+  useEffect(() => {
+    if (isProfileOpen && user) fetchAttendanceStats();
+  }, [isProfileOpen, user]);
 
   useRealtimeChannels([
     { name: 'app-next-event', table: 'events', onEvent: fetchNextEvent },
@@ -835,6 +865,28 @@ export default function App() {
                 }`}>
                   {user.is_experienced ? '⭐ Avançat' : 'Base'}
                 </span>
+              </div>
+              <div className="p-3 bg-stone-50 border border-stone-200/70 rounded-xl space-y-3">
+                <div>
+                  <label className="block text-[10px] font-black text-stone-500 uppercase tracking-wider">Assistència</label>
+                </div>
+                {[
+                  { label: 'Assajos', pct: attendanceStats?.assajos },
+                  { label: 'Actuacions', pct: attendanceStats?.actuacions },
+                ].map(({ label, pct }) => (
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-stone-600">{label}</span>
+                      <span className="text-xs font-black text-[#c2410c]">{pct !== null ? `${pct}%` : '...'}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-stone-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${pct === null ? 'w-0' : pct >= 75 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: pct !== null ? `${pct}%` : '0%' }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
               </div>
               {DEV_MODE && (
                 <div>
