@@ -317,7 +317,7 @@ export default function App() {
       const calc = (list: any[]) => list.length ? Math.round(list.filter(e => attended.has(e.id)).length / list.length * 100) : 0;
       setAttendanceStats({
         assajos: calc((pastEvents || []).filter(e => e.type.startsWith('Assaig'))),
-        actuacions: calc((pastEvents || []).filter(e => e.type === 'Actuació')),
+        actuacions: calc((pastEvents || []).filter(e => e.type !== 'Assaig' && !e.type.startsWith('Assaig'))),
       });
     } catch (e) {
       console.error("Error fetching attendance stats:", e);
