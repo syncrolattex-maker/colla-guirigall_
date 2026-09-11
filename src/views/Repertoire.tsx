@@ -318,6 +318,28 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
         </div>
       </div>
 
+      {/* BANNER CERCAVILES */}
+      <div className="mb-2 mt-2">
+        <a 
+          href="/cercaviles.pdf" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block w-full bg-gradient-to-r from-amber-500 to-[#c2410c] p-6 rounded-3xl shadow-md shadow-orange-500/10 text-white relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-300"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/20 transition-all"></div>
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/80 mb-1">Document Global</p>
+              <h3 className="text-xl md:text-2xl font-black tracking-tight mb-1">Bíblia de Cercaviles</h3>
+              <p className="text-orange-100 max-w-xl font-medium text-xs md:text-sm">Descarrega o visualitza el full de ruta complet amb totes les partitures unificades per als actes al carrer.</p>
+            </div>
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0 group-hover:scale-110 transition-transform">
+              <FileText size={24} />
+            </div>
+          </div>
+        </a>
+      </div>
+
       {/* Search and Filters */}
       <div className="space-y-3">
         {/* Search Bar */}
