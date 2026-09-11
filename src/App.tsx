@@ -305,7 +305,7 @@ export default function App() {
       const now = new Date().toISOString();
       const { data: pastEvents, error: eventsError } = await withTimeout(supabase
         .from('events')
-        .select('id, type, date')
+        .select('id, type, date, is_cancelled')
         .lt('date', now));
       if (eventsError) throw eventsError;
       const { data: myAtts, error: attsError } = await withTimeout(supabase
@@ -314,10 +314,11 @@ export default function App() {
         .eq('userid', user.uid));
       if (attsError) throw attsError;
       const attended = new Set((myAtts || []).filter(a => a.attended).map(a => a.eventid));
+      const usable = (pastEvents || []).filter(e => !e.is_cancelled);
       const calc = (list: any[]) => list.length ? Math.round(list.filter(e => attended.has(e.id)).length / list.length * 100) : 0;
       setAttendanceStats({
-        assajos: calc((pastEvents || []).filter(e => e.type.startsWith('Assaig'))),
-        actuacions: calc((pastEvents || []).filter(e => e.type !== 'Assaig' && !e.type.startsWith('Assaig'))),
+        assajos: calc(usable.filter(e => e.type.startsWith('Assaig'))),
+        actuacions: calc(usable.filter(e => e.type !== 'Assaig' && !e.type.startsWith('Assaig'))),
       });
     } catch (e) {
       console.error("Error fetching attendance stats:", e);
@@ -871,8 +872,8 @@ export default function App() {
                   <label className="block text-[10px] font-black text-stone-500 uppercase tracking-wider">Assistència</label>
                 </div>
                 {[
-                  { label: 'Assajos', pct: attendanceStats?.assajos },
-                  { label: 'Actuacions', pct: attendanceStats?.actuacions },
+                  { label: 'Assajos', pct: attendanceStats?.assajos ?? null },
+                  { label: 'Actuacions', pct: attendanceStats?.actuacions ?? null },
                 ].map(({ label, pct }) => (
                   <div key={label}>
                     <div className="flex items-center justify-between mb-1">

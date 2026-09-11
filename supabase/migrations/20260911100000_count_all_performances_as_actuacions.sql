@@ -20,21 +20,21 @@ BEGIN
 
   SELECT count(*) INTO v_total_actuacions
   FROM public.events
-  WHERE type NOT LIKE 'Assaig%' AND date < now();
+  WHERE type NOT LIKE 'Assaig%' AND date < now() AND COALESCE(is_cancelled, FALSE) = FALSE;
 
   SELECT count(*) INTO v_attended_actuacions
   FROM public.attendances a
   JOIN public.events e ON a.eventid = e.id
-  WHERE e.type NOT LIKE 'Assaig%' AND e.date < now() AND a.userid = p_user_id AND a.attended = true;
+  WHERE e.type NOT LIKE 'Assaig%' AND e.date < now() AND COALESCE(e.is_cancelled, FALSE) = FALSE AND a.userid = p_user_id AND a.attended = true;
 
   SELECT count(*) INTO v_total_assajos
   FROM public.events
-  WHERE type LIKE 'Assaig%' AND date < now();
+  WHERE type LIKE 'Assaig%' AND date < now() AND COALESCE(is_cancelled, FALSE) = FALSE;
 
   SELECT count(*) INTO v_attended_assajos
   FROM public.attendances a
   JOIN public.events e ON a.eventid = e.id
-  WHERE e.type LIKE 'Assaig%' AND e.date < now() AND a.userid = p_user_id AND a.attended = true;
+  WHERE e.type LIKE 'Assaig%' AND e.date < now() AND COALESCE(e.is_cancelled, FALSE) = FALSE AND a.userid = p_user_id AND a.attended = true;
 
   IF v_total_actuacions > 0 THEN
     v_score_actuacions := (v_attended_actuacions::numeric / v_total_actuacions::numeric) * v_peso_actuacions;
