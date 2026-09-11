@@ -330,17 +330,38 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       }
 
       const currentConvocat = allAttendances[eventId]?.[targetUserId]?.convocat || false;
-      const { error } = await withTimeout(supabase.from('attendances').upsert({
+
+      // Optimistic UI update
+      setAllAttendances(prev => {
+        const next = { ...prev };
+        if (!next[eventId]) next[eventId] = {};
+        next[eventId] = {
+          ...next[eventId],
+          [targetUserId]: {
+            ...next[eventId][targetUserId],
+            eventid: eventId,
+            userid: targetUserId,
+            status,
+            convocat: currentConvocat,
+            attended: next[eventId][targetUserId]?.attended || false
+          }
+        };
+        return next;
+      });
+
+      const { error } = await supabase.from('attendances').upsert({
         eventid: eventId,
         userid: targetUserId,
         status,
         convocat: currentConvocat,
         updatedat: new Date().toISOString()
-      }, { onConflict: 'eventid, userid' }));
+      }, { onConflict: 'eventid, userid' });
       if (error) throw error;
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert(`Error en actualitzar l'assistència: ${(error as any)?.message || error}`);
+      // If error occurs, Realtime will eventually overwrite the optimistic state
+      // or we could revert here if we stored the previous state.
     }
   };
 
