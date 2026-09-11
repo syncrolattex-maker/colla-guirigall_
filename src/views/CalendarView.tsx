@@ -26,6 +26,7 @@ interface AppEvent {
   slots_dolcaina?: number | null;
   slots_tabal?: number | null;
   requires_experienced?: boolean;
+  uniform?: string;
 }
 
 interface Song {
@@ -73,7 +74,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     notes: '',
     slots_dolcaina: '',
     slots_tabal: '',
-    requires_experienced: false
+    requires_experienced: false,
+    uniform: ''
   });
 
   const fetchEvents = async () => {
@@ -235,6 +237,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
         slots_dolcaina: newEvent.slots_dolcaina === '' ? null : Number(newEvent.slots_dolcaina),
         slots_tabal: newEvent.slots_tabal === '' ? null : Number(newEvent.slots_tabal),
         requires_experienced: !!newEvent.requires_experienced,
+        uniform: newEvent.uniform,
         createdby: user.name,
         createdat: editingEvent ? editingEvent.createdat : new Date().toISOString()
       };
@@ -279,9 +282,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       date: localISO,
       location: event.location || '',
       notes: event.notes || '',
-      slots_dolcaina: event.slots_dolcaina ?? '',
-      slots_tabal: event.slots_tabal ?? '',
-      requires_experienced: !!event.requires_experienced
+      slots_dolcaina: event.slots_dolcaina?.toString() || '',
+      slots_tabal: event.slots_tabal?.toString() || '',
+      requires_experienced: !!event.requires_experienced,
+      uniform: event.uniform || ''
     });
     setIsAdding(true);
   };
@@ -391,8 +395,9 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const baseEvents = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
   
   const displayedEvents = baseEvents.filter(event => {
-    if (eventTypeFilter === 'actuacions') return event.type !== 'Assaig' && !event.type.startsWith('Assaig');
-    if (eventTypeFilter === 'assajos') return event.type === 'Assaig' || event.type.startsWith('Assaig');
+    const isAssaig = event.type === 'Assaig' || event.type.startsWith('Assaig') || event.title.toLowerCase().includes('assaig');
+    if (eventTypeFilter === 'actuacions') return !isAssaig;
+    if (eventTypeFilter === 'assajos') return isAssaig;
     return true;
   });
 
@@ -415,32 +420,60 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   };
 
   // Find next rehearsal & performance
-  const nextRehearsal = upcomingEvents.find(e => e.type === 'Assaig' || e.type.startsWith('Assaig'));
-  const nextPerformance = upcomingEvents.find(e => e.type !== 'Assaig' && !e.type.startsWith('Assaig'));
+  const nextRehearsal = upcomingEvents.find(e => e.type === 'Assaig' || e.type.startsWith('Assaig') || e.title.toLowerCase().includes('assaig'));
+  const nextPerformance = upcomingEvents.find(e => !e.type.startsWith('Assaig') && !e.title.toLowerCase().includes('assaig'));
 
-  // Calculate my attendance stats
-  const pastAttCount = pastEvents.filter(e => {
+  // Split past events into Actuacions and Assajos (ignoring cancelled ones)
+  const pastNonCancelled = pastEvents.filter(e => !e.is_cancelled);
+  const pastActuacions = pastNonCancelled.filter(e => !e.type.startsWith('Assaig') && !e.title.toLowerCase().includes('assaig'));
+  const pastAssajos = pastNonCancelled.filter(e => e.type.startsWith('Assaig') || e.title.toLowerCase().includes('assaig'));
+
+  const myActuacionsAttended = pastActuacions.filter(e => {
     const att = allAttendances[e.id]?.[user.uid];
-    return att?.status === 'Vull anar-hi';
+    return att?.status === 'Vull anar-hi' || att?.convocat || (att as any)?.attended;
   }).length;
-  const attendanceRate = pastEvents.length > 0 ? Math.round((pastAttCount / pastEvents.length) * 100) : 100;
 
-  // Calculate each member's total performances (actuacions realitzades)
-  const memberActCounts: Record<string, number> = useMemo(() => {
-    const counts: Record<string, number> = {};
+  const myAssajosAttended = pastAssajos.filter(e => {
+    const att = allAttendances[e.id]?.[user.uid];
+    return att?.status === 'Vull anar-hi' || att?.convocat || (att as any)?.attended;
+  }).length;
+
+  const actuacionsRate = pastActuacions.length > 0 ? Math.round((myActuacionsAttended / pastActuacions.length) * 100) : 100;
+  const assajosRate = pastAssajos.length > 0 ? Math.round((myAssajosAttended / pastAssajos.length) * 100) : 100;
+
+  // Global weighted attendance rate: 50% actuacions, 50% assajos
+  const globalAttendanceRate = (pastActuacions.length > 0 && pastAssajos.length > 0)
+    ? Math.round((actuacionsRate * 0.5) + (assajosRate * 0.5))
+    : pastActuacions.length > 0 ? actuacionsRate : assajosRate;
+
+  // Calculate each member's total performances (actuacions) and rehearsals (assajos)
+  const memberCounts: Record<string, { actuacions: number; assajos: number; total: number }> = useMemo(() => {
+    const counts: Record<string, { actuacions: number; assajos: number; total: number }> = {};
     const nowTime = new Date().getTime();
     events
-      .filter(e => new Date(e.date).getTime() < nowTime && !e.type.startsWith('Assaig') && !e.is_cancelled)
+      .filter(e => new Date(e.date).getTime() < nowTime && !e.is_cancelled)
       .forEach(e => {
+        const isAssaig = e.type.startsWith('Assaig') || e.title.toLowerCase().includes('assaig');
         const atts = allAttendances[e.id] || {};
         Object.keys(atts).forEach(uid => {
-          if (atts[uid].convocat || atts[uid].attended) {
-            counts[uid] = (counts[uid] || 0) + 1;
+          if (atts[uid].convocat || atts[uid].attended || atts[uid].status === 'Vull anar-hi') {
+            if (!counts[uid]) counts[uid] = { actuacions: 0, assajos: 0, total: 0 };
+            if (isAssaig) counts[uid].assajos += 1;
+            else counts[uid].actuacions += 1;
+            counts[uid].total += 1;
           }
         });
       });
     return counts;
   }, [events, allAttendances]);
+
+  const memberActCounts: Record<string, number> = useMemo(() => {
+    const res: Record<string, number> = {};
+    Object.keys(memberCounts).forEach(uid => {
+      res[uid] = memberCounts[uid].actuacions;
+    });
+    return res;
+  }, [memberCounts]);
 
   return (
     <div className="space-y-8">
@@ -682,7 +715,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                   {dolcainesList.map(m => (
                                     <span
                                       key={m.uid}
-                                      title={`${m.name} · ${memberActCounts[m.uid] || 0} actuacions realitzades${m.is_experienced ? ' · Músic experimentat' : ''}`}
+                                      title={`${m.name} · ${memberCounts[m.uid]?.actuacions || 0} actuacions · ${memberCounts[m.uid]?.assajos || 0} assajos${m.is_experienced ? ' · Músic experimentat' : ''}`}
                                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
                                         m.is_experienced 
                                           ? 'bg-amber-50 text-amber-900 border-amber-200/80 shadow-xs' 
@@ -691,7 +724,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                     >
                                       {m.name.split(' ')[0]} {m.name.split(' ')[1] ? `${m.name.split(' ')[1][0]}.` : ''}
                                       {m.is_experienced && <span className="text-amber-600 text-[10px]">⭐</span>}
-                                      <span className="text-[10px] text-stone-400 font-semibold">({memberActCounts[m.uid] || 0})</span>
+                                      <span className="text-[10px] text-stone-400 font-semibold">({memberCounts[m.uid]?.actuacions || 0}a · {memberCounts[m.uid]?.assajos || 0}ass)</span>
                                     </span>
                                   ))}
                                 </div>
@@ -707,7 +740,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                   {tabalsList.map(m => (
                                     <span
                                       key={m.uid}
-                                      title={`${m.name} · ${memberActCounts[m.uid] || 0} actuacions realitzades${m.is_experienced ? ' · Músic experimentat' : ''}`}
+                                      title={`${m.name} · ${memberCounts[m.uid]?.actuacions || 0} actuacions · ${memberCounts[m.uid]?.assajos || 0} assajos${m.is_experienced ? ' · Músic experimentat' : ''}`}
                                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
                                         m.is_experienced 
                                           ? 'bg-amber-50 text-amber-900 border-amber-200/80 shadow-xs' 
@@ -716,7 +749,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                     >
                                       {m.name.split(' ')[0]} {m.name.split(' ')[1] ? `${m.name.split(' ')[1][0]}.` : ''}
                                       {m.is_experienced && <span className="text-amber-600 text-[10px]">⭐</span>}
-                                      <span className="text-[10px] text-stone-400 font-semibold">({memberActCounts[m.uid] || 0})</span>
+                                      <span className="text-[10px] text-stone-400 font-semibold">({memberCounts[m.uid]?.actuacions || 0}a · {memberCounts[m.uid]?.assajos || 0}ass)</span>
                                     </span>
                                   ))}
                                 </div>
@@ -732,10 +765,11 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                                   {othersList.map(m => (
                                     <span
                                       key={m.uid}
+                                      title={`${m.name} · ${memberCounts[m.uid]?.actuacions || 0} actuacions · ${memberCounts[m.uid]?.assajos || 0} assajos`}
                                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-white text-stone-700 border border-stone-200"
                                     >
                                       {m.name.split(' ')[0]}
-                                      <span className="text-[10px] text-stone-400">({memberActCounts[m.uid] || 0})</span>
+                                      <span className="text-[10px] text-stone-400">({memberCounts[m.uid]?.actuacions || 0}a · {memberCounts[m.uid]?.assajos || 0}ass)</span>
                                     </span>
                                   ))}
                                 </div>
@@ -852,20 +886,36 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
             <div className="p-4 bg-stone-50/80 border border-stone-200/60 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Taxa d'assistència</p>
-                  <p className="text-3xl font-black text-stone-900 tracking-tight">{attendanceRate}%</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">Taxa d'assistència global</p>
+                  <p className="text-3xl font-black text-stone-900 tracking-tight">{globalAttendanceRate}%</p>
                 </div>
                 <div className="w-14 h-14 rounded-full border-4 border-[#c2410c] flex items-center justify-center font-black text-xs text-stone-800">
-                  {pastAttCount}/{pastEvents.length || 1}
+                  {myActuacionsAttended + myAssajosAttended}/{pastActuacions.length + pastAssajos.length || 1}
                 </div>
               </div>
+
               <div className="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
-                <div className="h-full bg-[#c2410c] rounded-full" style={{ width: `${attendanceRate}%` }}></div>
+                <div className="h-full bg-[#c2410c] rounded-full transition-all" style={{ width: `${globalAttendanceRate}%` }}></div>
               </div>
+
+              {/* Dual Breakdown Chips (50% Actuacions, 50% Assajos) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 text-center">
+                  <div className="text-[9px] font-black uppercase text-stone-400">🎭 Actuacions (50%)</div>
+                  <div className="text-sm font-black text-stone-900 mt-0.5">{myActuacionsAttended}/{pastActuacions.length}</div>
+                  <div className="text-[10px] font-bold text-orange-600">{actuacionsRate}%</div>
+                </div>
+                <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 text-center">
+                  <div className="text-[9px] font-black uppercase text-stone-400">🎺 Assajos (50%)</div>
+                  <div className="text-sm font-black text-stone-900 mt-0.5">{myAssajosAttended}/{pastAssajos.length}</div>
+                  <div className="text-[10px] font-bold text-blue-600">{assajosRate}%</div>
+                </div>
+              </div>
+
               <p className="text-[11px] text-stone-500 font-medium leading-relaxed">
-                {attendanceRate >= 50 
-                  ? 'Molt bona participació! Complixes el mínim per a les festes majors.' 
-                  : 'Recorda confirmar assistències per a mantenir una bona rotació a la colla.'}
+                {globalAttendanceRate >= 50 
+                  ? 'Molt bona participació! Computa el 50% d\'actuacions i el 50% d\'assajos per al còmput de rotació.' 
+                  : 'Recorda assistir als assajos i actuacions per a mantindre alta la teua taxa d\'assistència.'}
               </p>
             </div>
           </div>
@@ -1006,6 +1056,17 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                       <h4 className="font-black text-amber-900 uppercase text-xs tracking-wider mb-0.5">Acte de Nivell Avançat</h4>
                       <p className="text-amber-800 font-medium text-xs">
                         Aquesta actuació requereix el grup de músics experimentats de la colla. La proposta de rotació SWRR s'aplica exclusivament entre aquest grup.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {viewingEvent.uniform && (
+                  <div className="mb-4 p-4 bg-sky-50 border-2 border-sky-200/90 rounded-2xl flex items-start gap-3 shadow-xs">
+                    <span className="text-2xl mt-0.5">👕</span>
+                    <div>
+                      <h4 className="font-black text-sky-900 uppercase text-xs tracking-wider mb-0.5">Uniformitat i Material</h4>
+                      <p className="text-sky-800 font-medium text-sm whitespace-pre-wrap">
+                        {viewingEvent.uniform}
                       </p>
                     </div>
                   </div>
@@ -1246,6 +1307,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Ubicació</label>
                   <input type="text" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Ex: Plaça de la Vila" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Uniformitat i Material</label>
+                  <input type="text" value={newEvent.uniform || ''} onChange={e => setNewEvent({...newEvent, uniform: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl focus:ring-[#d44211] focus:border-[#d44211]" placeholder="Ex: Camisa blanca i pantalons foscos..." />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Notes / Observacions</label>

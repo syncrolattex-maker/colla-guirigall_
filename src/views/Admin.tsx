@@ -229,7 +229,7 @@ function AddMemberModal({ onClose, onAdd, adding }: { onClose: () => void; onAdd
 const MemberCard: React.FC<{
   member: Member;
   currentUser: UserData;
-  totalActs: number;
+  totalActs: { actuacions: number, assajos: number } | number;
   onUpdate: (uid: string, field: 'instrument' | 'role', value: string) => Promise<void>;
   onUpdateExperience: (uid: string, isExperienced: boolean) => Promise<void>;
   onDelete: (member: Member) => Promise<void>;
@@ -385,7 +385,7 @@ const MemberCard: React.FC<{
               )}
             </div>
             <span className="px-2.5 py-1 bg-stone-100 text-stone-700 rounded-xl text-xs font-black" title="Total d'actuacions que ha fet este membre">
-              🏆 {totalActs || 0} actuacions
+              🏆 {typeof totalActs === 'object' ? `${totalActs.actuacions || 0}a · ${totalActs.assajos || 0}as` : `${totalActs || 0} actes`}
             </span>
           </div>
         )}
@@ -437,7 +437,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
   const [showAddMember, setShowAddMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
 
-  const [allMemberActCounts, setAllMemberActCounts] = useState<Record<string, number>>({});
+  const [allMemberActCounts, setAllMemberActCounts] = useState<Record<string, { actuacions: number, assajos: number }>>({});
 
   const fetchEvents = async () => {
     try {
@@ -466,16 +466,21 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     try {
       const { data, error } = await withTimeout(supabase
         .from('attendances')
-        .select('userid, eventid, convocat, attended, events(type, date)')
+        .select('userid, eventid, convocat, attended, events(type, title, date)')
         .or('convocat.eq.true,attended.eq.true'));
       if (error) {
         console.error("Error fetching member act counts:", error);
         return;
       }
-      const counts: Record<string, number> = {};
+      const counts: Record<string, { actuacions: number, assajos: number }> = {};
       data?.forEach((row: any) => {
-        if (!row.events || !row.events.type?.startsWith('Assaig')) {
-          counts[row.userid] = (counts[row.userid] || 0) + 1;
+        if (!counts[row.userid]) counts[row.userid] = { actuacions: 0, assajos: 0 };
+        
+        const isRehearsal = row.events?.type?.startsWith('Assaig') || row.events?.title?.toLowerCase().includes('assaig');
+        if (isRehearsal) {
+          counts[row.userid].assajos += 1;
+        } else {
+          counts[row.userid].actuacions += 1;
         }
       });
       setAllMemberActCounts(counts);
@@ -1608,7 +1613,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                                   <p className="text-xs text-stone-400 font-medium truncate mt-0.5 flex items-center gap-1.5">
                                     <span>{m.instrument} {idx === 0 ? '· Veterà' : idx === 1 ? '· Solista' : ''}</span>
                                     <span className="text-[10px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
-                                      🏆 {allMemberActCounts[m.uid] || 0} actes
+                                      🏆 {allMemberActCounts[m.uid]?.actuacions || 0}a · {allMemberActCounts[m.uid]?.assajos || 0}as
                                     </span>
                                   </p>
                                 </div>
@@ -1731,7 +1736,7 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
                                   <p className="text-xs text-stone-400 font-medium truncate mt-0.5 flex items-center gap-1.5">
                                     <span>{m.instrument} {idx === 0 ? 'tradicional' : ''}</span>
                                     <span className="text-[10px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
-                                      🏆 {allMemberActCounts[m.uid] || 0} actes
+                                      🏆 {allMemberActCounts[m.uid]?.actuacions || 0}a · {allMemberActCounts[m.uid]?.assajos || 0}as
                                     </span>
                                   </p>
                                 </div>
