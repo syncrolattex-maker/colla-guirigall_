@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock, XCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
@@ -297,7 +297,15 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   };
 
   const handleDeleteEvent = async (eventId: number) => {
-    if (!confirm("Estàs segur que vols eliminar aquest esdeveniment? També s'esborraran les assistències i notificacions associades.")) return;
+    const event = events.find(e => e.id === eventId);
+    const isPast = event && new Date(event.date) < new Date();
+    
+    let msg = "Estàs segur que vols eliminar aquest esdeveniment? També s'esborraran les assistències i notificacions associades.";
+    if (isPast) {
+      msg = "⚠️ AVÍS IMPORTANT ⚠️\nAquest acte ja ha passat. Si l'elimines, s'esborrarà l'historial d'assistència de TOTS els membres per a aquest acte (afectarà a la seva taxa d'assistència).\n\nSi l'acte es va suspendre per pluja o altres motius, utilitza el botó 'Cancel·lar' en lloc d'eliminar-lo.\n\nN'estàs totalment segur que vols ELIMINAR-LO?";
+    }
+    
+    if (!confirm(msg)) return;
     
     try {
       const { error } = await withTimeout(supabase.from('events').delete().eq('id', eventId));
@@ -815,10 +823,19 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                           >
                             <Pencil size={16} />
                           </button>
+                          {!event.is_cancelled && (
+                            <button
+                              onClick={() => handleCancelEvent(event.id)}
+                              className="p-3 text-stone-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+                              title="Cancel·lar Acte (per suspendre'l)"
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteEvent(event.id)}
                             className="p-3 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                            title="Eliminar"
+                            title="Eliminar (només si es un error)"
                           >
                             <Trash2 size={16} />
                           </button>
