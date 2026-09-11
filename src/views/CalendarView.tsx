@@ -835,42 +835,6 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
         {/* Right Column: Widgets (Captura 4) */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* Widget 1: Pròxim Assaig General Obligatori */}
-          <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#c2410c]">Pròxim Assaig General</span>
-              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/60 text-[9px] font-black uppercase rounded-full">
-                Obligatori
-              </span>
-            </div>
-            <div>
-              <h4 className="text-base font-black text-stone-900 tracking-tight">
-                {nextRehearsal ? nextRehearsal.title : 'Preparació Repertori Setmanal'}
-              </h4>
-              <p className="text-xs text-stone-500 font-medium mt-1 leading-relaxed">
-                Repàs de les peces clau: Muixeranga, Processó d'Algemesí i pasdobles de carrer.
-              </p>
-            </div>
-            <div className="space-y-1.5 text-xs font-semibold text-stone-600 pt-1">
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="text-[#c2410c]" />
-                <span>{nextRehearsal ? formatDate(nextRehearsal.date) : 'Dijous · 18:30h - 21:30h'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-[#c2410c]" />
-                <span>{nextRehearsal?.location || 'Local de la Colla, Carrer Major'}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                if (nextRehearsal) handleAttendance(nextRehearsal.id, 'Vull anar-hi');
-                else alert("Assistència a l'assaig registrada.");
-              }}
-              className="w-full py-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle size={14} className="text-emerald-600" /> Confirmar presència a l'assaig
-            </button>
-          </div>
 
           {/* Widget 2: El meu resum d'actes */}
           <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-sm card-warm space-y-4">
