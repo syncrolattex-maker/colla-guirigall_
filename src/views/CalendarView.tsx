@@ -53,6 +53,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const [userAssignments, setUserAssignments] = useState<Record<number, Record<number, string>>>({}); // eventId -> songId -> voice
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null);
   const [viewingEvent, setViewingEvent] = useState<AppEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -224,7 +225,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     e.preventDefault();
     const isRehearsal = newEvent.type.startsWith('Assaig');
     if ((!newEvent.title && !isRehearsal) || !newEvent.date) return;
-
+    
+    setIsSaving(true);
     try {
       const finalTitle = newEvent.title || newEvent.type;
       
@@ -244,11 +246,11 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
       if (editingEvent) {
         console.log("Updating event...", editingEvent.id);
-        const { error } = await withTimeout(supabase.from('events').update(eventData).eq('id', editingEvent.id));
+        const { error } = await withTimeout(supabase.from('events').update(eventData).eq('id', editingEvent.id), 25000);
         if (error) throw error;
       } else {
         console.log("Adding event...");
-        const { data, error } = await withTimeout(supabase.from('events').insert(eventData).select());
+        const { data, error } = await withTimeout(supabase.from('events').insert(eventData).select(), 25000);
         if (error) throw error;
 
         if (isRehearsal && data && data[0]) {
@@ -266,6 +268,8 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     } catch (error) {
       console.error("Error saving event:", error);
       alert(`Hi ha hagut un error en desar l'esdeveniment: ${(error as any)?.message || error}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1303,8 +1307,9 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               <button onClick={handleCloseAddModal} className="px-6 py-3 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors">
                 Cancel·lar
               </button>
-              <button type="submit" form="add-event-form" className="px-6 py-3 bg-[#d44211] text-white font-bold rounded-xl hover:bg-[#d44211]/90 transition-colors shadow-lg shadow-[#d44211]/20">
-                Guardar
+              <button type="submit" form="add-event-form" disabled={isSaving} className="px-6 py-3 bg-[#c2410c] text-white font-bold hover:bg-[#9a3412] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
+                {isSaving && <div className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />}
+                {editingEvent ? 'Guardar Canvis' : 'Afegir Esdeveniment'}
               </button>
             </div>
           </div>
