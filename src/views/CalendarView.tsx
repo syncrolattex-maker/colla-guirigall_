@@ -471,6 +471,9 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     if (t.includes('cambra')) {
       return '/assaig_cambra.jpg';
     }
+    if (t.includes('colleta')) {
+      return '/assaig_colleta.jpg';
+    }
     if (t.includes('concert') || t.includes('audició') || t.includes('intercanvi')) {
       return 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop';
     }
