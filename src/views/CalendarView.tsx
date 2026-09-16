@@ -329,7 +329,10 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
         return;
       }
 
-      const currentConvocat = allAttendances[eventId]?.[targetUserId]?.convocat || false;
+      // For rehearsals, "Vull anar-hi" automatically means they are confirmed/convocated
+      const isRehearsal = event?.type.startsWith('Assaig') || event?.title.toLowerCase().includes('assaig');
+      const shouldAutoConvocat = isRehearsal && status === 'Vull anar-hi';
+      const currentConvocat = shouldAutoConvocat ? true : (allAttendances[eventId]?.[targetUserId]?.convocat || false);
 
       // Optimistic UI update
       setAllAttendances(prev => {
@@ -687,7 +690,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                         </span>
                       ) : myAttendance === 'Vull anar-hi' ? (
                         <span className="px-3.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-black uppercase tracking-wider rounded-full flex items-center gap-1 shadow-sm">
-                          <CheckCircle size={12} className="text-emerald-600" /> {amIConvocat ? 'Convocat' : 'Inscrit'}
+                          <CheckCircle size={12} className="text-emerald-600" /> {event.type.startsWith('Assaig') ? 'Confirmat' : (amIConvocat ? 'Convocat' : 'Inscrit')}
                         </span>
                       ) : (
                         <span className="px-3 py-1 bg-stone-100/90 text-stone-700 text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm">
