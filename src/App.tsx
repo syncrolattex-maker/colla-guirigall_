@@ -25,6 +25,7 @@ export interface UserData {
   role: 'admin' | 'member';
   instrument: string;
   is_experienced?: boolean;
+  managed_by?: string;
 }
 
 export interface GlobalAlert {

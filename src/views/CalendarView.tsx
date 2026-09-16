@@ -636,6 +636,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
               const eventAtts = allAttendances[event.id] || {};
               const myAttendance = eventAtts[user.uid]?.status;
               const amIConvocat = eventAtts[user.uid]?.convocat;
+              const dependents = users.filter(u => u.managed_by === user.uid);
               const confirmedCount = users.filter(u => eventAtts[u.uid]?.status === 'Vull anar-hi').length;
               const declinedCount = users.filter(u => eventAtts[u.uid]?.status === 'No puc').length;
               
@@ -852,7 +853,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
                     {/* Action Button & Admin Tools */}
                     <div className="pt-2 flex items-center justify-between gap-3">
-                      <div className="flex-1">
+                      <div className="flex-1 space-y-2">
                         {!event.is_cancelled ? (
                           myAttendance === 'Vull anar-hi' ? (
                             <button
@@ -874,6 +875,30 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
                             Actuació cancel·lada
                           </span>
                         )}
+
+                        {dependents.length > 0 && !event.is_cancelled && dependents.map(dep => {
+                          const depAttendance = eventAtts[dep.uid]?.status;
+                          return (
+                            <div key={dep.uid} className="pt-2 border-t border-stone-100">
+                              <p className="text-[10px] font-bold text-stone-500 mb-2 uppercase tracking-wider text-center">Assistència de {dep.name.split(' ')[0]}</p>
+                              {depAttendance === 'Vull anar-hi' ? (
+                                <button
+                                  onClick={() => handleAttendance(event.id, 'No puc', dep.uid)}
+                                  className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all"
+                                >
+                                  {dep.name.split(' ')[0]} no pot venir
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleAttendance(event.id, 'Vull anar-hi', dep.uid)}
+                                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm shadow-amber-500/20"
+                                >
+                                  {dep.name.split(' ')[0]} vindrà
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
 
                       {user.role === 'admin' && (
