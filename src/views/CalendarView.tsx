@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock, XCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock, XCircle, Mail } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
@@ -362,6 +362,36 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       alert(`Error en actualitzar l'assistència: ${(error as any)?.message || error}`);
       // If error occurs, Realtime will eventually overwrite the optimistic state
       // or we could revert here if we stored the previous state.
+    }
+  };
+
+  const handleSendReminder = async (eventId: number) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+    
+    if (!confirm(`Vols enviar un correu de recordatori d'assistència a TOTS els músics per a "${event.title}"?`)) return;
+
+    try {
+      // Create a notification for all active users
+      const members = users;
+      
+      const notifications = members.map(m => ({
+        userid: m.uid,
+        eventid: event.id,
+        title: `📢 Recordatori d'Assistència: ${event.title}`,
+        message: `Hola ${m.name.split(' ')[0]}, recorda confirmar la teva assistència per a "${event.title}" programat per al ${formatDate(event.date)}. Si us plau, entra a l'App i indica si pots venir. Gràcies!`,
+        read: false,
+        createdat: new Date().toISOString(),
+        send_email: true
+      }));
+
+      const { error } = await supabase.from('notifications').insert(notifications);
+      if (error) throw error;
+      
+      alert(`Recordatori enviat correctament per correu a ${members.length} membres!`);
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+      alert(`Error en enviar el recordatori: ${(error as any)?.message || error}`);
     }
   };
 
@@ -841,6 +871,13 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
 
                       {user.role === 'admin' && (
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleSendReminder(event.id)}
+                            className="p-3 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                            title="Enviar recordatori d'assistència per correu"
+                          >
+                            <Mail size={16} />
+                          </button>
                           <button
                             onClick={() => handleOpenEdit(event)}
                             className="p-3 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-all"
