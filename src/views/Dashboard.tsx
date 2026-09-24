@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { Calendar, MapPin, Music, ChevronRight, CheckCircle, XCircle, ExternalLink, PieChart, Clock } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
 import { UserData } from '../App';
@@ -32,6 +32,7 @@ interface DashboardProps {
 export default function Dashboard({ setView, user }: DashboardProps) {
   const [upcomingEvents, setUpcomingEvents] = useState<AppEvent[]>([]);
   const [attendances, setAttendances] = useState<Record<number, Attendance>>({});
+  const [activePolls, setActivePolls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchEvents = async () => {
@@ -78,9 +79,27 @@ export default function Dashboard({ setView, user }: DashboardProps) {
     }
   };
 
+  const fetchPolls = async () => {
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await withTimeout(supabase
+        .from('polls')
+        .select('*')
+        .gte('deadline', now)
+        .order('deadline', { ascending: true }));
+      
+      if (!error && data) {
+        setActivePolls(data);
+      }
+    } catch (e) {
+      console.error("Error fetching polls:", e);
+    }
+  };
+
   const refreshAll = () => {
     fetchEvents();
     fetchAttendances();
+    fetchPolls();
   };
 
   useAppFocusRefresh(refreshAll);
@@ -88,11 +107,11 @@ export default function Dashboard({ setView, user }: DashboardProps) {
   useRealtimeChannels([
     { name: 'dashboard-events', table: 'events', onEvent: fetchEvents },
     { name: 'dashboard-attendances', table: 'attendances', onEvent: fetchAttendances },
+    { name: 'dashboard-polls', table: 'polls', onEvent: fetchPolls },
   ]);
 
   useEffect(() => {
-    fetchEvents();
-    fetchAttendances();
+    refreshAll();
   }, [user.uid]);
 
   const handleAttendance = async (eventId: number, status: 'Vull anar-hi' | 'No puc') => {
@@ -146,6 +165,36 @@ export default function Dashboard({ setView, user }: DashboardProps) {
           <span className="text-sm font-bold">El meu calendari</span>
         </button>
       </div>
+
+      {activePolls.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900">Enquestes Obertes</h2>
+            <button onClick={() => setView('polls')} className="text-[#d44211] text-sm font-bold">Votar ara</button>
+          </div>
+          <div className="flex flex-col gap-3">
+            {activePolls.map(poll => (
+              <div 
+                key={poll.id} 
+                onClick={() => setView('polls')}
+                className="flex items-start gap-4 p-4 rounded-xl bg-orange-50 border border-orange-200 shadow-sm cursor-pointer hover:bg-orange-100 transition-colors"
+              >
+                <div className="w-10 h-10 shrink-0 rounded-full bg-[#d44211]/20 text-[#d44211] flex items-center justify-center">
+                  <PieChart size={20} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight mb-1">{poll.title}</h3>
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#d44211]">
+                    <Clock size={12} />
+                    <span>Fins al {formatDate(poll.deadline)}</span>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-orange-300 mt-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
