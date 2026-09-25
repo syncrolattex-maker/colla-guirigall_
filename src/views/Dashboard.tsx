@@ -85,8 +85,8 @@ export default function Dashboard({ setView, user }: DashboardProps) {
       const { data, error } = await withTimeout(supabase
         .from('polls')
         .select('*')
-        .gte('deadline', now)
-        .order('deadline', { ascending: true }));
+        .or(`deadline.gte.${now},deadline.is.null`)
+        .order('deadline', { ascending: true, nullsFirst: false }));
       
       if (!error && data) {
         setActivePolls(data);
@@ -186,7 +186,7 @@ export default function Dashboard({ setView, user }: DashboardProps) {
                   <h3 className="text-sm font-bold text-slate-900 leading-tight mb-1">{poll.title}</h3>
                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#d44211]">
                     <Clock size={12} />
-                    <span>Fins al {formatDate(poll.deadline)}</span>
+                    <span>{poll.deadline ? `Fins al ${formatDate(poll.deadline)}` : 'Oberta sense límit'}</span>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-orange-300 mt-2" />
