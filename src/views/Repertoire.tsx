@@ -891,10 +891,10 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { id: 1, title: 'Ritme de Tabal 1', url: '/audio/ritme_1.mp3' },
-              { id: 2, title: 'Ritme de Tabal 2', url: '/audio/ritme_2.mp3' },
-              { id: 3, title: 'Ritme de Tabal 3', url: '/audio/ritme_3.mp3' },
-              { id: 4, title: 'Ritme de Tabal 4', url: '/audio/ritme_4.mp3' },
+              { id: 1, title: 'Cercavila 2/4 Pasdoble', url: '/audio/ritme_1.mp3' },
+              { id: 2, title: 'Cercavila 6/8 120bpm', url: '/audio/ritme_2.mp3' },
+              { id: 3, title: 'Cercavila 2/4 120bpm', url: '/audio/ritme_3.mp3' },
+              { id: 4, title: 'Bocairent Binari 120bpm', url: '/audio/ritme_4.mp3' },
             ].map(r => (
               <div key={r.id} className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4 transition-all hover:border-stone-300">
                 <div className="flex items-center gap-3">
