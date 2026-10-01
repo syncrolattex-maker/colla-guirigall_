@@ -896,7 +896,7 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
               { id: 3, title: 'Cercavila 2/4 120bpm', url: '/audio/ritme_3.mp3' },
               { id: 4, title: 'Bocairent Binari 120bpm', url: '/audio/ritme_4.mp3' },
               { id: 5, title: 'Marxa Mora', url: '/audio/ritme_5.mp3' },
-              { id: 6, title: 'Ritme de Tabal 6', url: '/audio/ritme_6.mp3' },
+              { id: 6, title: 'Dansa', url: '/audio/ritme_6.mp3' },
             ].map(r => (
               <div key={r.id} className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4 transition-all hover:border-stone-300">
                 <div className="flex items-center gap-3">
