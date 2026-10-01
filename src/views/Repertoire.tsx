@@ -39,6 +39,7 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
   const [existingPdfs, setExistingPdfs] = useState<SongPdf[]>([]);
   const [removeMp3, setRemoveMp3] = useState(false);
   const [userAssignments, setUserAssignments] = useState<Record<number, string>>({}); // songId -> voice
+  const [activeTab, setActiveTab] = useState<'general' | 'ritmes'>('general');
   
   const [newSong, setNewSong] = useState({
     title: '',
@@ -318,7 +319,33 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
         </div>
       </div>
 
-      {/* BANNER CERCAVILES */}
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-stone-200/60 pb-4">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'general'
+              ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+              : 'bg-white text-stone-600 border border-stone-200/70 hover:bg-stone-50'
+          }`}
+        >
+          Repertori General
+        </button>
+        <button
+          onClick={() => setActiveTab('ritmes')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+            activeTab === 'ritmes'
+              ? 'bg-[#c2410c] text-white shadow-sm shadow-[#c2410c]/20'
+              : 'bg-white text-stone-600 border border-stone-200/70 hover:bg-stone-50'
+          }`}
+        >
+          Ritmes de Tabal
+        </button>
+      </div>
+
+      {activeTab === 'general' ? (
+        <>
+          {/* BANNER CERCAVILES */}
       <div className="mb-2 mt-2">
         <a 
           href="/cercaviles.pdf" 
@@ -852,6 +879,45 @@ export default function Repertoire({ user, onNavigate }: RepertoireProps) {
           </div>
         </div>
       )}
+      </>
+      ) : (
+        <div className="space-y-6 pt-2">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">Ritmes Bàsics de Tabal</h2>
+            <p className="text-sm text-stone-500 font-medium max-w-2xl">
+              Aquí trobaràs una col·lecció d'àudios amb els ritmes més habituals. Ideal per a que els més menuts puguin practicar a casa, tocar per damunt d'ells o simplement escoltar l'estructura bàsica.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { id: 1, title: 'Ritme de Tabal 1', url: '/audio/ritme_1.mp3' },
+              { id: 2, title: 'Ritme de Tabal 2', url: '/audio/ritme_2.mp3' },
+              { id: 3, title: 'Ritme de Tabal 3', url: '/audio/ritme_3.mp3' },
+              { id: 4, title: 'Ritme de Tabal 4', url: '/audio/ritme_4.mp3' },
+            ].map(r => (
+              <div key={r.id} className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4 transition-all hover:border-stone-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-orange-50 text-[#c2410c] flex items-center justify-center shrink-0">
+                    <Disc size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-stone-900">{r.title}</h3>
+                    <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wider">Audio MP3 per practicar</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveAudio({ title: r.title, url: r.url })}
+                  className="w-10 h-10 rounded-full bg-[#c2410c] text-white flex items-center justify-center shrink-0 hover:bg-[#9a3412] transition-colors shadow-md hover:scale-105"
+                >
+                  <Play size={18} fill="currentColor" className="ml-1" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Audio Player Sticky */}
       {activeAudio && (
         <div className="fixed bottom-20 left-4 right-4 md:bottom-24 md:left-auto md:right-8 md:w-96 bg-white border-2 border-[#d44211] shadow-2xl rounded-2xl z-40 animate-in slide-in-from-bottom-4 duration-300">
