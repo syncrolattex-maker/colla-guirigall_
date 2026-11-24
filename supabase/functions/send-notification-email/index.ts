@@ -14,6 +14,15 @@ function removeAccents(str: string): string {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function logError(message: string, metadata: any = {}) {
   try {
     await supabase.from("error_logs").insert([{
@@ -61,21 +70,28 @@ async function sendGmailEmail(to: string, subject: string, html: string, accessT
   const utf8Encoder = new TextEncoder();
   const base64Raw = encodeBase64Url(utf8Encoder.encode(emailContent));
 
-  const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ raw: base64Raw }),
-  });
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw: base64Raw }),
+    });
 
-  const data = await resp.json();
-  if (!resp.ok) {
+    const data = await resp.json();
+    if (resp.ok) return data;
+
+    if (resp.status === 429 && attempt < 3) {
+      const waitMs = 600 * Math.pow(2, attempt) + Math.floor(Math.random() * 400);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
     await logError("Gmail API Send Failed", { data, to });
     throw new Error(`Gmail API error: ${JSON.stringify(data)}`);
   }
-  return data;
 }
 
 Deno.serve(async (req) => {
@@ -106,7 +122,7 @@ Deno.serve(async (req) => {
       return new Response("User not found or no email", { status: 404 });
     }
 
-    if (userData.email.includes("@manual-entry.colla")) {
+    if (userData.email.includes("@manual-entry.colla") || userData.email.includes("@colla.guirigall")) {
       return new Response(JSON.stringify({ success: true, message: "Manual entry skipped" }), {
         headers: { "Content-Type": "application/json" },
       });
@@ -133,16 +149,16 @@ Deno.serve(async (req) => {
         eventDetails = `
           <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px; margin-top: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
             <div style="display: inline-block; padding: 4px 12px; background-color: #fef2f2; border-radius: 100px;">
-              <p style="margin: 0; font-size: 11px; font-weight: 800; color: #d44211; text-transform: uppercase; letter-spacing: 0.1em;">${eventData.type}</p>
+              <p style="margin: 0; font-size: 11px; font-weight: 800; color: #d44211; text-transform: uppercase; letter-spacing: 0.1em;">${escapeHtml(eventData.type)}</p>
             </div>
-            <h3 style="margin: 12px 0 8px 0; font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1.2;">${eventData.title}</h3>
+            <h3 style="margin: 12px 0 8px 0; font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1.2;">${escapeHtml(eventData.title)}</h3>
             <div style="margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
               <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #475569;">
-                <span style="font-size: 18px; margin-right: 8px;">📅</span> ${dateStr}
+                <span style="font-size: 18px; margin-right: 8px;">📅</span> ${escapeHtml(dateStr)}
               </p>
               ${eventData.location ? `
               <p style="margin: 0; font-size: 14px; font-weight: 600; color: #64748b;">
-                <span style="font-size: 18px; margin-right: 8px;">📍</span> ${eventData.location}
+                <span style="font-size: 18px; margin-right: 8px;">📍</span> ${escapeHtml(eventData.location)}
               </p>` : ""}
             </div>
           </div>
@@ -151,7 +167,9 @@ Deno.serve(async (req) => {
     }
 
     // 3. Build HTML Email
-    const firstName = userData.name.split(" ")[0];
+    const firstName = escapeHtml(userData.name.split(" ")[0]);
+    const safeTitle = escapeHtml(record.title || "");
+    const safeMessage = escapeHtml(record.message || "");
     const emailHtml = `<!DOCTYPE html>
 <html lang="ca">
 <head>
@@ -178,10 +196,10 @@ Deno.serve(async (req) => {
     </div>
     <div class="content">
       <h2 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 900; color: #0f172a; letter-spacing: -0.02em;">Hola, ${firstName}!</h2>
-      <p style="font-size: 16px; font-weight: 700; color: #d44211; margin-bottom: 24px;">${record.title}</p>
+      <p style="font-size: 16px; font-weight: 700; color: #d44211; margin-bottom: 24px;">${safeTitle}</p>
       
       <div class="quote-box">
-        <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #334155; font-style: italic;">"${record.message}"</p>
+        <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #334155; font-style: italic;">"${safeMessage}"</p>
       </div>
 
       ${eventDetails}

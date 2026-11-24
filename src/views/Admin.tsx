@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, CheckCircle, MoreVertical, Calendar, Users, Archive, Pencil, X, Bell, Shield, Music, Trash2, Save, AlertTriangle, PieChart, Plus, ShoppingBag, FileText, Package, Utensils, ArrowLeft, Download, RotateCcw, Sparkles, MessageCircle, Clock, Search, MapPin } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels, insertNotificationsStaggered } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface AdminProps {
@@ -783,14 +783,17 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     if (!selectedEventId) return;
     try {
       const toConvocate = Object.keys(manualLineupEdits).filter(uid => manualLineupEdits[uid]);
-      for (const uid of toConvocate) {
-        await supabase.from('attendances').upsert({
+      if (toConvocate.length > 0) {
+        const nowIso = new Date().toISOString();
+        const rows = toConvocate.map(uid => ({
           eventid: selectedEventId,
           userid: uid,
           status: attendances[uid]?.status || 'Pendent',
           convocat: true,
-          updatedat: new Date().toISOString()
-        }, { onConflict: 'eventid, userid' });
+          updatedat: nowIso
+        }));
+        const { error } = await supabase.from('attendances').upsert(rows, { onConflict: 'eventid, userid' });
+        if (error) throw error;
       }
       setShowLineupModal(false);
       alert("Convocatòria aplicada correctament.");
@@ -808,17 +811,19 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
       const event = events.find(e => e.id === selectedEventId);
       const eventTitle = event?.title || event?.type || 'Esdeveniment';
       const eventDate = event ? new Date(event.date).toLocaleString('ca-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
-      const notifications = combinedData.filter(m => m.convocat).map(m => ({
-        userid: m.uid,
-        title: `Convocatoria: ${eventTitle}`,
-        message: `Has estat convocat per a l'actuacio "${eventTitle}" el dia ${eventDate}. Revisa el calendari per a mes detalls.`,
-        read: false, createdat: new Date().toISOString(), link: 'calendar', eventid: selectedEventId,
-        send_email: true
-      }));
+      const notifications = combinedData.filter(m => m.convocat).map(m => {
+        const isFakeEmail = !m.email || m.email.includes('@manual-entry.colla') || m.email.includes('@colla.guirigall');
+        return {
+          userid: m.uid,
+          title: `Convocatoria: ${eventTitle}`,
+          message: `Has estat convocat per a l'actuacio "${eventTitle}" el dia ${eventDate}. Revisa el calendari per a mes detalls.`,
+          read: false, createdat: new Date().toISOString(), link: 'calendar', eventid: selectedEventId,
+          send_email: !isFakeEmail
+        };
+      });
       if (notifications.length > 0) {
         console.log("Sending email notifications to:", notifications.length, "musicians");
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) throw notifError;
+        await insertNotificationsStaggered(notifications);
       }
       alert(`S'ha publicat la llista i s'estan enviant ${notifications.length} correus de notificació.`);
     } catch (error) { console.error("Error publishing event:", error); alert("Error en publicar la llista."); }
@@ -881,12 +886,14 @@ export default function Admin({ user, setView, setSelectedEventId }: AdminProps)
     if (!message) return;
     const sendViaEmail = confirm("Vols enviar també aquesta notificació per correu electrònic a tots els membres?");
     try {
-      const notifications = members.map(m => ({
-        userid: m.uid, title, message, read: false, createdat: new Date().toISOString(),
-        send_email: sendViaEmail
-      }));
-      const { error } = await supabase.from('notifications').insert(notifications);
-      if (error) throw error;
+      const notifications = members.map(m => {
+        const isFakeEmail = !m.email || m.email.includes('@manual-entry.colla') || m.email.includes('@colla.guirigall');
+        return {
+          userid: m.uid, title, message, read: false, createdat: new Date().toISOString(),
+          send_email: sendViaEmail && !isFakeEmail
+        };
+      });
+      await insertNotificationsStaggered(notifications);
       alert(`Notificació enviada a ${members.length} membres.`);
     } catch (error) {
       console.error("Error sending notifications:", error);

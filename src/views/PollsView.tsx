@@ -86,17 +86,19 @@ export default function PollsView({ user }: PollsViewProps) {
       const quantity = poll?.type === 'order' ? (orderQuantity[pollId] || 1) : 1;
 
       if (existingVote) {
-        await supabase.from('poll_votes').update({ 
+        const { error } = await supabase.from('poll_votes').update({ 
           option_id: optionId,
           quantity: quantity
         }).eq('id', existingVote.id);
+        if (error) throw error;
       } else {
-        await supabase.from('poll_votes').insert([{
+        const { error } = await supabase.from('poll_votes').insert([{
           poll_id: pollId,
           option_id: optionId,
           user_id: user.uid,
           quantity: quantity
         }]);
+        if (error) throw error;
       }
       // Optimistic update
       setIsEditing({ ...isEditing, [pollId]: false });
@@ -121,7 +123,8 @@ export default function PollsView({ user }: PollsViewProps) {
         return;
       }
 
-      await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('user_id', user.uid);
+      const { error: deleteError } = await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('user_id', user.uid);
+      if (deleteError) throw deleteError;
 
       const newVotes = selectedOptionIds.map(optId => ({
         poll_id: pollId,
@@ -131,7 +134,8 @@ export default function PollsView({ user }: PollsViewProps) {
         notes: mealNotes[optId] || ''
       }));
 
-      await supabase.from('poll_votes').insert(newVotes);
+      const { error: insertError } = await supabase.from('poll_votes').insert(newVotes);
+      if (insertError) throw insertError;
 
       setIsEditing({ ...isEditing, [pollId]: false });
       fetchData();

@@ -3,11 +3,11 @@ import { supabase } from '../supabaseClient';
 
 // Evita que una query de Supabase deje el loading colgado para siempre.
 // Si la red se queda latente al cambiar de pestaña, a los `ms` liberamos la UI.
-export async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
+export async function withTimeout<T>(promise: PromiseLike<T>, ms = 12000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     return await Promise.race([
-      promise,
+      Promise.resolve(promise),
       new Promise<T>((_, reject) => {
         timer = setTimeout(() => reject(new Error(`Supabase timeout (${ms}ms)`)), ms);
       }),
@@ -39,6 +39,28 @@ export function useAppFocusRefresh(cb: () => void, minIntervalMs = 1000) {
     window.addEventListener('app-focus', onFocus);
     return () => window.removeEventListener('app-focus', onFocus);
   }, [minIntervalMs]);
+}
+
+export async function insertNotificationsStaggered(
+  notifications: Array<Record<string, any>>,
+  batchSize = 3,
+  delayMs = 450
+) {
+  if (notifications.length === 0) return;
+  const hasEmail = notifications.some(n => n.send_email);
+  if (!hasEmail || notifications.length <= batchSize) {
+    const { error } = await supabase.from('notifications').insert(notifications);
+    if (error) throw error;
+    return;
+  }
+  for (let i = 0; i < notifications.length; i += batchSize) {
+    const chunk = notifications.slice(i, i + batchSize);
+    const { error } = await supabase.from('notifications').insert(chunk);
+    if (error) throw error;
+    if (i + batchSize < notifications.length) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
 }
 
 export interface ChannelSpec {

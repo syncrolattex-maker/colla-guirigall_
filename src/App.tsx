@@ -111,6 +111,7 @@ export default function App() {
 
     const mountedRef = { current: true };
     let authSubscription: any = null;
+    let lastFetchedUid: string | null = null;
 
     const checkSession = async () => {
       try {
@@ -120,12 +121,13 @@ export default function App() {
         console.log("Checking session on refresh...", session?.user?.email);
         
         if (session?.user) {
-          if (!user || user.uid !== session.user.id) {
-            await fetchUserData(session.user);
+          if (lastFetchedUid !== session.user.id) {
+            lastFetchedUid = session.user.id;
+            await fetchUserData(session.user, mountedRef);
           }
-        } else if (user) {
-          // If session is gone but user state exists, log out
+        } else if (lastFetchedUid !== null) {
           console.warn("Session lost, logging out...");
+          lastFetchedUid = null;
           setUser(null);
           setLoading(false);
         }
@@ -189,8 +191,13 @@ export default function App() {
 
           // If session shifted (login/logout), update data
           if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-            if (currentSession?.user) await fetchUserData(currentSession.user);
+            if (currentSession?.user) {
+              if (event === 'SIGNED_IN' && lastFetchedUid === currentSession.user.id) return;
+              lastFetchedUid = currentSession.user.id;
+              await fetchUserData(currentSession.user, mountedRef);
+            }
           } else if (event === 'SIGNED_OUT') {
+            lastFetchedUid = null;
             setUser(null);
             setLoading(false);
           }

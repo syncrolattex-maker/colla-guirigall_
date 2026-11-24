@@ -17,6 +17,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace(/^Bearer\s+/i, '');
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
+    const { data: callerProfile } = await supabaseClient
+      .from('users')
+      .select('role')
+      .eq('uid', user.id)
+      .single();
+
+    if (callerProfile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Forbidden: admin required' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      });
+    }
+
     const { event_id } = await req.json();
 
     if (!event_id) throw new Error("Missing event_id");

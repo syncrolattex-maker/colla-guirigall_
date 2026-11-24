@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar as CalendarIcon, Users, Settings, MapPin, CheckCircle, Plus, X, Trash2, FileText, Music, Pencil, Link2, ExternalLink, Clock, XCircle, Mail } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { withTimeout, useAppFocusRefresh, useRealtimeChannels } from '../utils/viewHelpers';
+import { withTimeout, useAppFocusRefresh, useRealtimeChannels, insertNotificationsStaggered } from '../utils/viewHelpers';
 import { UserData } from '../App';
 
 interface CalendarProps {
@@ -67,6 +67,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     slots_dolcaina: number | '';
     slots_tabal: number | '';
     requires_experienced: boolean;
+    uniform: string;
   }>({
     title: '',
     type: 'Actuació',
@@ -297,7 +298,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
   const handleCloseAddModal = () => {
     setIsAdding(false);
     setEditingEvent(null);
-    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '', slots_dolcaina: '', slots_tabal: '', requires_experienced: false });
+    setNewEvent({ title: '', type: 'Actuació', date: '', location: '', notes: '', slots_dolcaina: '', slots_tabal: '', requires_experienced: false, uniform: '' });
   };
 
   const handleDeleteEvent = async (eventId: number) => {
@@ -363,8 +364,7 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
     } catch (error) {
       console.error("Error updating attendance:", error);
       alert(`Error en actualitzar l'assistència: ${(error as any)?.message || error}`);
-      // If error occurs, Realtime will eventually overwrite the optimistic state
-      // or we could revert here if we stored the previous state.
+      fetchAttendances();
     }
   };
 
@@ -378,18 +378,20 @@ export default function CalendarView({ user, selectedEventId, setSelectedEventId
       // Create a notification for all active users
       const members = users;
       
-      const notifications = members.map(m => ({
-        userid: m.uid,
-        eventid: event.id,
-        title: `📢 Recordatori d'Assistència: ${event.title}`,
-        message: `Hola ${m.name.split(' ')[0]}, recorda confirmar la teva assistència per a "${event.title}" programat per al ${formatDate(event.date)}. Si us plau, entra a l'App i indica si pots venir. Gràcies!`,
-        read: false,
-        createdat: new Date().toISOString(),
-        send_email: true
-      }));
+      const notifications = members.map(m => {
+        const isFakeEmail = !m.email || m.email.includes('@manual-entry.colla') || m.email.includes('@colla.guirigall');
+        return {
+          userid: m.uid,
+          eventid: event.id,
+          title: `📢 Recordatori d'Assistència: ${event.title}`,
+          message: `Hola ${m.name.split(' ')[0]}, recorda confirmar la teva assistència per a "${event.title}" programat per al ${formatDate(event.date)}. Si us plau, entra a l'App i indica si pots venir. Gràcies!`,
+          read: false,
+          createdat: new Date().toISOString(),
+          send_email: !isFakeEmail
+        };
+      });
 
-      const { error } = await supabase.from('notifications').insert(notifications);
-      if (error) throw error;
+      await insertNotificationsStaggered(notifications);
       
       alert(`Recordatori enviat correctament per correu a ${members.length} membres!`);
     } catch (error) {
